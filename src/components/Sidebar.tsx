@@ -56,8 +56,6 @@ export function Sidebar() {
         isSidebarOpen ? 'w-64' : 'w-[72px]'
       )}
     >
-      {/* ... previous code remains or just update the nav loop ... */}
-      {/* Logo block ... */}
       <div className="h-16 flex items-center justify-between px-4 border-b shrink-0">
         <div className={cn(
           'flex items-center gap-2.5 font-bold text-primary overflow-hidden transition-all duration-300',
@@ -84,7 +82,6 @@ export function Sidebar() {
         </button>
       </div>
 
-      {/* Expand button when collapsed */}
       {!isSidebarOpen && (
         <button
           onClick={toggleSidebar}
@@ -94,7 +91,6 @@ export function Sidebar() {
         </button>
       )}
 
-      {/* Nav */}
       <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto overflow-x-hidden">
         {filteredItems.map((item, index) => {
           if ('section' in item) {
@@ -106,13 +102,13 @@ export function Sidebar() {
             );
           }
 
-          const Icon = item.icon;
+          const Icon = item.icon!;
           const isMaster = item.path === '/master';
 
           return (
             <NavLink
               key={item.path}
-              to={item.path}
+              to={item.path!}
               className={({ isActive }) => cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 group relative',
                 isActive
@@ -129,7 +125,6 @@ export function Sidebar() {
               )}>
                 {item.label}
               </span>
-              {/* Tooltip when collapsed */}
               {!isSidebarOpen && (
                 <div className="absolute left-full ml-3 px-2.5 py-1.5 bg-foreground text-background text-xs font-semibold rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50 shadow-lg">
                   {item.label}
@@ -140,7 +135,6 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Logout */}
       <div className="px-3 py-3 border-t shrink-0">
         <button 
           onClick={logout}

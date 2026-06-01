@@ -28,47 +28,43 @@ function App() {
     );
   }
 
-  if (!isAuthenticated) {
-    return (
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="*"     element={<Navigate to="/login" replace />} />
-        </Routes>
-      </BrowserRouter>
-    );
-  }
-
   return (
     <BrowserRouter>
       <Routes>
-        <Route element={<DashboardLayout />}>
-          {/* Dashboard */}
-          <Route path="/"          element={<Dashboard />} />
-          <Route path="/master"    element={<MasterDashboard />} />
+        {isAuthenticated ? (
+          <Route element={<DashboardLayout />}>
+            {/* Dashboard */}
+            <Route path="/"          element={<Dashboard />} />
+            <Route path="/master"    element={<MasterDashboard />} />
 
-          {/* Financeiro */}
-          <Route path="/contas"      element={<BankAccounts />} />
-          <Route path="/cartoes"     element={<CreditCards />} />
-          <Route path="/conciliacao" element={<BankReconciliation />} />
-          <Route path="/receber"     element={<Transactions />} />
-          <Route path="/pagar"       element={<Transactions />} />
-          
-          {/* Ferramentas */}
-          <Route path="/cobrancas"   element={<PlaceholderPage title="Régua de Cobrança" desc="Configuração de lembretes e alertas para não perder vencimentos." />} />
-          <Route path="/metas"       element={<PlaceholderPage title="Metas e Orçamentos" desc="Definição de metas financeiras para planejamento futuro." />} />
+            {/* Financeiro */}
+            <Route path="/contas"      element={<BankAccounts />} />
+            <Route path="/cartoes"     element={<CreditCards />} />
+            <Route path="/conciliacao" element={<BankReconciliation />} />
+            <Route path="/receber"     element={<Transactions />} />
+            <Route path="/pagar"       element={<Transactions />} />
+            
+            {/* Ferramentas */}
+            <Route path="/cobrancas"   element={<PlaceholderPage title="Régua de Cobrança" desc="Configuração de lembretes e alertas para não perder vencimentos." />} />
+            <Route path="/metas"       element={<PlaceholderPage title="Metas e Orçamentos" desc="Definição de metas financeiras para planejamento futuro." />} />
 
-          {/* Análise */}
-          <Route path="/fluxo"       element={<CashFlow />} />
-          <Route path="/relatorios"  element={<Reports />} />
+            {/* Análise */}
+            <Route path="/fluxo"       element={<CashFlow />} />
+            <Route path="/relatorios"  element={<Reports />} />
 
-          {/* Sistema */}
-          <Route path="/configuracoes" element={<PlaceholderPage title="Configurações" desc="Suas preferências de conta e segurança." />} />
-          <Route path="/empresa"       element={<PlaceholderPage title="Minha Empresa" desc="Dados do seu plano e informações gerais." />} />
-        </Route>
-
-        <Route path="/login" element={<Login />} />
-        <Route path="*"      element={<Navigate to="/" replace />} />
+            {/* Sistema */}
+            <Route path="/configuracoes" element={<PlaceholderPage title="Configurações" desc="Suas preferências de conta e segurança." />} />
+            <Route path="/empresa"       element={<PlaceholderPage title="Minha Empresa" desc="Dados do seu plano e informações gerais." />} />
+            
+            {/* Catch-all for authenticated */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
+        ) : (
+          <>
+            <Route path="/login" element={<Login />} />
+            <Route path="*"      element={<Navigate to="/login" replace />} />
+          </>
+        )}
       </Routes>
     </BrowserRouter>
   );
