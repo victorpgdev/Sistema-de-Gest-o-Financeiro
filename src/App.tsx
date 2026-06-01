@@ -6,6 +6,7 @@ import { MasterDashboard } from './pages/MasterDashboard';
 import { BankAccounts }   from './pages/BankAccounts';
 import { BankReconciliation } from './pages/BankReconciliation';
 import { Transactions }   from './pages/Transactions';
+import { CreditCards }    from './pages/CreditCards';
 import { CashFlow }       from './pages/CashFlow';
 import { Reports }        from './pages/Reports';
 import { useEffect } from 'react';
@@ -48,7 +49,7 @@ function App() {
 
           {/* Financeiro */}
           <Route path="/contas"      element={<BankAccounts />} />
-          <Route path="/cartoes"     element={<PlaceholderPage title="Cartões de Crédito" desc="Gerenciamento de faturas e limites de cartões." />} />
+          <Route path="/cartoes"     element={<CreditCards />} />
           <Route path="/conciliacao" element={<BankReconciliation />} />
           <Route path="/receber"     element={<Transactions />} />
           <Route path="/pagar"       element={<Transactions />} />
