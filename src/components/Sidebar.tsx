@@ -18,7 +18,7 @@ import {
   Target
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useUIStore } from '@/store';
+import { useUIStore, useAuthStore } from '@/store';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard',         path: '/'             },
@@ -38,11 +38,16 @@ const menuItems = [
   { section: 'Sistema' },
   { icon: Settings,        label: 'Configurações',     path: '/configuracoes'},
   { icon: Building2,       label: 'Minha Empresa',     path: '/empresa'      },
-  { icon: Crown,           label: 'Painel Master',     path: '/master'       },
+  { icon: Crown,           label: 'Painel Master',     path: '/master', masterOnly: true },
 ];
 
 export function Sidebar() {
   const { isSidebarOpen, toggleSidebar } = useUIStore();
+  const { user, logout } = useAuthStore();
+
+  const filteredItems = menuItems.filter(item => 
+    !('masterOnly' in item) || (item.masterOnly && user?.role === 'MASTER')
+  );
 
   return (
     <aside
@@ -51,7 +56,8 @@ export function Sidebar() {
         isSidebarOpen ? 'w-64' : 'w-[72px]'
       )}
     >
-      {/* Logo */}
+      {/* ... previous code remains or just update the nav loop ... */}
+      {/* Logo block ... */}
       <div className="h-16 flex items-center justify-between px-4 border-b shrink-0">
         <div className={cn(
           'flex items-center gap-2.5 font-bold text-primary overflow-hidden transition-all duration-300',
@@ -90,7 +96,7 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto overflow-x-hidden">
-        {menuItems.map((item, index) => {
+        {filteredItems.map((item, index) => {
           if ('section' in item) {
             if (!isSidebarOpen) return <div key={index} className="h-px bg-border/50 my-2 mx-1" />;
             return (
@@ -136,10 +142,13 @@ export function Sidebar() {
 
       {/* Logout */}
       <div className="px-3 py-3 border-t shrink-0">
-        <button className={cn(
-          'flex items-center gap-3 px-3 py-2.5 w-full rounded-xl text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors',
-          !isSidebarOpen && 'justify-center'
-        )}>
+        <button 
+          onClick={logout}
+          className={cn(
+            'flex items-center gap-3 px-3 py-2.5 w-full rounded-xl text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors',
+            !isSidebarOpen && 'justify-center'
+          )}
+        >
           <LogOut className="w-4.5 h-4.5 shrink-0" />
           <span className={cn(
             'text-sm font-semibold whitespace-nowrap transition-all duration-300 overflow-hidden',

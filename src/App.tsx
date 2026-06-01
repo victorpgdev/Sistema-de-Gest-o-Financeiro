@@ -8,9 +8,24 @@ import { BankReconciliation } from './pages/BankReconciliation';
 import { Transactions }   from './pages/Transactions';
 import { CashFlow }       from './pages/CashFlow';
 import { Reports }        from './pages/Reports';
+import { useEffect } from 'react';
+import { useAuthStore } from './store';
+import { Loader2 } from 'lucide-react';
 
 function App() {
-  const isAuthenticated = true;
+  const { isAuthenticated, isLoading, initialize } = useAuthStore();
+
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
+
+  if (isLoading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-10 h-10 text-primary animate-spin" />
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return (

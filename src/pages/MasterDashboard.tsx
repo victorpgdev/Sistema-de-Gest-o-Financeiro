@@ -1,17 +1,19 @@
-import React from 'react';
+import { useState } from 'react';
 import { 
   Building2, 
   Users, 
   CreditCard, 
   AlertCircle, 
   CheckCircle2, 
-  BarChart2, 
   Plus, 
   Search,
   MoreVertical,
-  Activity
+  Activity,
+  ShieldCheck,
+  ShieldAlert,
+  Loader2
 } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 import { 
   LineChart, 
   Line, 
@@ -21,6 +23,8 @@ import {
   Tooltip, 
   ResponsiveContainer 
 } from 'recharts';
+import { useAuthStore } from '@/store';
+import { Navigate } from 'react-router-dom';
 
 const growthData = [
   { name: 'Jan', revenue: 50000 },
@@ -39,18 +43,29 @@ const masterStats = [
 ];
 
 const companies = [
-  { name: 'Igreja Batista Aliança', segment: 'Igreja', plan: 'Pro', status: 'active', members: 450, expires: '2024-12-10' },
-  { name: 'Lopes Advocacia', segment: 'Advocacia', plan: 'Enterprise', status: 'active', members: 12, expires: '2025-01-15' },
-  { name: 'Tech Solutions Ltda', segment: 'Serviços', plan: 'Basic', status: 'suspended', members: 5, expires: '2024-05-20' },
-  { name: 'Clínica Sorriso', segment: 'Clínica', plan: 'Pro', status: 'active', members: 24, expires: '2024-11-30' },
+  { id: '1', name: 'FAMA CONTABIL E EMPRESARIAL LTDA', document: '20.627.513/0001-34', segment: 'Contabilidade', plan: 'Enterprise', status: 'active', members: 45, expires: '2025-06-01' },
+  { id: '2', name: 'Lopes Advocacia', document: '12.345.678/0001-90', segment: 'Advocacia', plan: 'Pro', status: 'active', members: 12, expires: '2025-01-15' },
+  { id: '3', name: 'Tech Solutions Ltda', document: '98.765.432/0001-10', segment: 'Serviços', plan: 'Basic', status: 'suspended', members: 5, expires: '2024-05-20' },
+  { id: '4', name: 'Clínica Sorriso', document: '44.555.666/0001-77', segment: 'Clínica', plan: 'Pro', status: 'active', members: 24, expires: '2024-11-30' },
 ];
 
 export function MasterDashboard() {
+  const { user } = useAuthStore();
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Only allow MASTER users
+  if (user?.role !== 'MASTER') {
+    return <Navigate to="/" replace />;
+  }
+
   return (
     <div className="space-y-8 pb-12">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Painel Master Admin</h1>
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-3xl font-extrabold tracking-tight">Painel Master Admin</h1>
+            <ShieldCheck className="w-6 h-6 text-primary" />
+          </div>
           <p className="text-muted-foreground">Visão global da plataforma e controle de licenças.</p>
         </div>
         <button className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-2xl font-bold shadow-lg shadow-primary/20 hover:scale-105 transition-transform active:scale-95">
@@ -62,12 +77,12 @@ export function MasterDashboard() {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {masterStats.map((stat, i) => (
-          <div key={i} className="p-6 bg-card border rounded-3xl shadow-sm hover:shadow-md transition-all">
-            <div className={`w-12 h-12 ${stat.bg} ${stat.color} rounded-2xl flex items-center justify-center mb-4`}>
+          <div key={i} className="p-6 bg-card border rounded-3xl shadow-sm hover:shadow-md transition-all group">
+            <div className={`w-12 h-12 ${stat.bg} ${stat.color} rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
               <stat.icon className="w-6 h-6" />
             </div>
-            <p className="text-sm text-muted-foreground font-semibold uppercase tracking-wider">{stat.label}</p>
-            <h3 className="text-3xl font-bold mt-1 tracking-tight">{stat.value}</h3>
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{stat.label}</p>
+            <h3 className="text-3xl font-bold mt-1 tracking-tight tabular-nums">{stat.value}</h3>
           </div>
         ))}
       </div>
@@ -78,25 +93,29 @@ export function MasterDashboard() {
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-xl font-bold">Crescimento de Receita (MRR)</h3>
             <div className="flex gap-2">
-              <span className="px-3 py-1 bg-emerald-500/10 text-emerald-600 rounded-full text-xs font-bold">+18.5% este mês</span>
+              <span className="px-4 py-1.5 bg-emerald-500/10 text-emerald-600 rounded-full text-xs font-bold flex items-center gap-1.5">
+                <Activity className="w-3.5 h-3.5" />
+                +18.5% este mês
+              </span>
             </div>
           </div>
-          <div className="h-[350px] w-full">
+          <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={growthData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: 'hsl(var(--muted-foreground))'}} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted)/0.5)" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: 'hsl(var(--muted-foreground))', fontSize: 12}} />
                 <YAxis axisLine={false} tickLine={false} hide />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '16px', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                   contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '16px', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                   formatter={(val: any) => [formatCurrency(val as number), 'Receita']}
                 />
                 <Line 
                   type="monotone" 
                   dataKey="revenue" 
                   stroke="hsl(var(--primary))" 
                   strokeWidth={4} 
-                  dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2, r: 6 }}
-                  activeDot={{ r: 8, strokeWidth: 0 }}
+                  dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6, strokeWidth: 0 }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -104,31 +123,28 @@ export function MasterDashboard() {
         </div>
 
         {/* Plan Distribution */}
-        <div className="p-8 bg-card border rounded-3xl shadow-sm flex flex-col">
-          <h3 className="text-xl font-bold mb-6">Distribuição de Planos</h3>
-          <div className="space-y-6 flex-1">
+        <div className="p-8 bg-card border rounded-3xl shadow-sm flex flex-col justify-center">
+          <h3 className="text-xl font-bold mb-8">Distribuição de Planos</h3>
+          <div className="space-y-6">
             {[
               { label: 'Plano Enterprise', count: 18, color: 'bg-primary' },
               { label: 'Plano Pro', count: 64, color: 'bg-blue-400' },
               { label: 'Plano Basic', count: 48, color: 'bg-slate-400' },
-              { label: 'Free Trial', count: 12, color: 'bg-slate-200' },
+              { label: 'Free Trial', count: 12, color: 'bg-muted' },
             ].map((plan, i) => (
               <div key={i} className="space-y-2">
-                <div className="flex justify-between text-sm font-semibold">
-                  <span>{plan.label}</span>
-                  <span>{plan.count} empresas</span>
+                <div className="flex justify-between text-sm font-bold">
+                  <span className="text-muted-foreground">{plan.label}</span>
+                  <span>{plan.count}</span>
                 </div>
-                <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
+                <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
                   <div 
-                    className={`h-full ${plan.color}`} 
+                    className={cn("h-full transition-all duration-1000", plan.color)} 
                     style={{ width: `${(plan.count / 142) * 100}%` }}
                   />
                 </div>
               </div>
             ))}
-          </div>
-          <div className="mt-8 p-4 bg-primary/5 rounded-2xl border border-primary/10">
-            <p className="text-xs text-muted-foreground text-center">O plano <strong>Pro</strong> continua sendo o motor de crescimento da plataforma.</p>
           </div>
         </div>
       </div>
@@ -142,6 +158,8 @@ export function MasterDashboard() {
             <input 
               type="text" 
               placeholder="Buscar por nome, CNPJ ou segmento..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-11 pr-4 py-3 bg-muted/50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
             />
           </div>
@@ -151,19 +169,18 @@ export function MasterDashboard() {
             <thead className="bg-muted/30 text-left text-xs font-bold text-muted-foreground uppercase tracking-widest">
               <tr>
                 <th className="px-8 py-5">Empresa</th>
-                <th className="px-6 py-5">Segmento</th>
+                <th className="px-6 py-5">CNPJ</th>
                 <th className="px-6 py-5">Plano</th>
                 <th className="px-6 py-5">Status</th>
-                <th className="px-6 py-5">Vencimento</th>
-                <th className="px-8 py-5 text-right">Ações</th>
+                <th className="px-6 py-5 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
-              {companies.map((company, i) => (
-                <tr key={i} className="hover:bg-muted/20 transition-colors group">
+            <tbody className="divide-y divide-border/50">
+              {companies.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase())).map((company) => (
+                <tr key={company.id} className="hover:bg-muted/20 transition-colors group">
                   <td className="px-8 py-5">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center text-white text-xs font-bold">
+                      <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
                         {company.name[0]}
                       </div>
                       <div>
@@ -173,38 +190,32 @@ export function MasterDashboard() {
                     </div>
                   </td>
                   <td className="px-6 py-5">
-                    <span className="px-3 py-1 bg-muted rounded-full text-xs font-bold text-muted-foreground">
-                      {company.segment}
-                    </span>
+                    <span className="text-sm font-medium text-muted-foreground">{company.document}</span>
                   </td>
                   <td className="px-6 py-5">
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                    <span className={cn(
+                      "px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider",
                       company.plan === 'Enterprise' ? 'bg-amber-100 text-amber-700' : 
                       company.plan === 'Pro' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
-                    }`}>
+                    )}>
                       {company.plan}
                     </span>
                   </td>
                   <td className="px-6 py-5">
                     <div className="flex items-center gap-2">
                       {company.status === 'active' ? (
-                        <>
-                          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                          <span className="text-xs font-bold text-emerald-600">Ativa</span>
-                        </>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 text-emerald-600 rounded-lg text-[11px] font-bold uppercase">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Ativa
+                        </div>
                       ) : (
-                        <>
-                          <AlertCircle className="w-4 h-4 text-rose-500" />
-                          <span className="text-xs font-bold text-rose-600">Suspensa</span>
-                        </>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-rose-500/10 text-rose-600 rounded-lg text-[11px] font-bold uppercase">
+                          <AlertCircle className="w-3.5 h-3.5" /> Suspensa
+                        </div>
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-5 text-xs font-medium text-muted-foreground">
-                    {new Date(company.expires).toLocaleDateString()}
-                  </td>
                   <td className="px-8 py-5 text-right">
-                    <button className="p-2 hover:bg-muted rounded-lg transition-colors">
+                    <button className="p-2 hover:bg-muted rounded-xl transition-colors">
                       <MoreVertical className="w-5 h-5 text-muted-foreground" />
                     </button>
                   </td>
@@ -217,5 +228,3 @@ export function MasterDashboard() {
     </div>
   );
 }
-
-import { cn } from '@/lib/utils';
