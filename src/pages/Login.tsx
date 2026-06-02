@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { LayoutDashboard, Lock, Mail, ArrowRight, Loader2, AlertCircle, ShoppingBag, MessageCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import { useAuthStore } from '@/store';
 
 export function Login() {
   const navigate = useNavigate();
@@ -38,6 +39,18 @@ export function Login() {
     window.open('https://wa.me/5511999999999?text=Olá! Gostaria de adquirir uma licença do sistema PG Financial.', '_blank');
   };
 
+  const handleDevLogin = () => {
+    const { setUser } = useAuthStore.getState();
+    setUser({
+      id: 'dev-master',
+      name: 'Victor Hugo (Dev)',
+      email: 'victorhugoperea89@gmail.com',
+      role: 'MASTER',
+      tenant_id: 'dev-tenant'
+    });
+    navigate('/');
+  };
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/10 via-background to-background">
       <motion.div 
@@ -45,6 +58,13 @@ export function Login() {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md"
       >
+        <button 
+          onClick={handleDevLogin}
+          className="absolute -top-12 left-0 right-0 py-2 bg-amber-500/10 text-amber-600 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-amber-500/20 transition-all border border-amber-500/20"
+        >
+          [ DEV BYPASS ] Entrar como Master sem Supabase
+        </button>
+
         <div className="bg-card border shadow-2xl rounded-[2.5rem] p-8 md:p-12 relative overflow-hidden">
           {/* Subtle background decoration */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-2xl" />
