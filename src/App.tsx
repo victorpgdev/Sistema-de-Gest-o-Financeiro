@@ -11,10 +11,10 @@ import { CashFlow }       from './pages/CashFlow';
 import { Reports }        from './pages/Reports';
 import { useEffect } from 'react';
 import { useAuthStore } from './store';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertTriangle, ShieldAlert } from 'lucide-react';
 
 function App() {
-  const { isAuthenticated, isLoading, initialize } = useAuthStore();
+  const { isAuthenticated, isLoading, initialize, tenant, user } = useAuthStore();
 
   useEffect(() => {
     initialize();
@@ -28,36 +28,33 @@ function App() {
     );
   }
 
+  // Lógica de Bloqueio de Licença (Multi-tenant)
+  // Se o usuário não for MASTER e a empresa estiver suspensa, bloqueia.
+  const isAccountBlocked = user?.role !== 'MASTER' && tenant?.status === 'suspended';
+
   return (
     <BrowserRouter>
       <Routes>
         {isAuthenticated ? (
-          <Route element={<DashboardLayout />}>
-            {/* Dashboard */}
-            <Route path="/"          element={<Dashboard />} />
-            <Route path="/master"    element={<MasterDashboard />} />
-
-            {/* Financeiro */}
-            <Route path="/accounts"       element={<BankAccounts />} />
-            <Route path="/cards"          element={<CreditCards />} />
-            <Route path="/reconciliation" element={<BankReconciliation />} />
-            <Route path="/transactions"   element={<Transactions />} />
-            
-            {/* Ferramentas */}
-            <Route path="/cobrancas"   element={<PlaceholderPage title="Régua de Cobrança" desc="Configuração de lembretes e alertas para não perder vencimentos." />} />
-            <Route path="/metas"       element={<PlaceholderPage title="Metas e Orçamentos" desc="Definição de metas financeiras para planejamento futuro." />} />
-
-            {/* Análise */}
-            <Route path="/cash-flow"      element={<CashFlow />} />
-            <Route path="/reports"        element={<Reports />} />
-
-            {/* Sistema */}
-            <Route path="/configuracoes" element={<PlaceholderPage title="Configurações" desc="Suas preferências de conta e segurança." />} />
-            <Route path="/empresa"       element={<PlaceholderPage title="Minha Empresa" desc="Dados do seu plano e informações gerais." />} />
-            
-            {/* Catch-all for authenticated */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Route>
+          isAccountBlocked ? (
+            <Route path="*" element={<BlockedAccountScreen />} />
+          ) : (
+            <Route element={<DashboardLayout />}>
+              <Route path="/"          element={<Dashboard />} />
+              <Route path="/master"    element={<MasterDashboard />} />
+              <Route path="/accounts"       element={<BankAccounts />} />
+              <Route path="/cards"          element={<CreditCards />} />
+              <Route path="/reconciliation" element={<BankReconciliation />} />
+              <Route path="/transactions"   element={<Transactions />} />
+              <Route path="/cash-flow"      element={<CashFlow />} />
+              <Route path="/reports"        element={<Reports />} />
+              
+              {/* Fallbacks */}
+              <Route path="/cobrancas"   element={<PlaceholderPage title="Régua de Cobrança" desc="Em breve." />} />
+              <Route path="/metas"       element={<PlaceholderPage title="Metas" desc="Em breve." />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Route>
+          )
         ) : (
           <>
             <Route path="/login" element={<Login />} />
@@ -69,13 +66,45 @@ function App() {
   );
 }
 
-// Placeholder for sections in development
+function BlockedAccountScreen() {
+  const { logout } = useAuthStore();
+  return (
+    <div className="h-screen w-screen bg-background flex items-center justify-center p-6">
+      <div className="max-w-md w-full bg-card border-2 border-rose-100 rounded-[2.5rem] p-10 text-center space-y-6 shadow-2xl shadow-rose-500/5">
+        <div className="w-20 h-20 bg-rose-500/10 text-rose-600 rounded-3xl flex items-center justify-center mx-auto animate-bounce">
+          <ShieldAlert className="w-10 h-10" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-2xl font-bold tracking-tight">Acesso Suspenso</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Sua licença de uso expirou ou foi suspensa por falta de pagamento. Entre em contato com o suporte Master para regularizar sua situação.
+          </p>
+        </div>
+        <div className="pt-4 space-y-3">
+          <button 
+            onClick={() => window.open('https://wa.me/5511999999999', '_blank')}
+            className="w-full py-4 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/20 hover:scale-105 transition-all"
+          >
+            Falar com Suporte
+          </button>
+          <button 
+            onClick={logout}
+            className="w-full py-4 border rounded-2xl font-semibold text-muted-foreground hover:bg-muted transition-all"
+          >
+            Sair da Conta
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PlaceholderPage({ title, desc }: { title: string; desc: string }) {
   return (
     <div className="flex flex-col items-center justify-center h-96 rounded-3xl border bg-card text-center gap-4">
       <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center text-4xl">🚧</div>
       <h2 className="text-2xl font-bold">{title}</h2>
-      <p className="text-muted-foreground max-w-sm">{desc}</p>
+      <p className="text-muted-foreground">{desc}</p>
     </div>
   );
 }
