@@ -1,43 +1,28 @@
-import React from 'react';
 import { Outlet } from 'react-router-dom';
-import { Sidebar } from '../components/Sidebar';
-import { Header } from '../components/Header';
+import { Sidebar } from '@/components/Sidebar';
+import { Header }  from '@/components/Header';
 import { useUIStore } from '@/store';
 import { cn } from '@/lib/utils';
-import { motion, AnimatePresence } from 'framer-motion';
 
 export function DashboardLayout() {
   const { isSidebarOpen } = useUIStore();
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="flex h-screen bg-[#F8FAFC] overflow-hidden">
+      {/* Sidebar - Fixa lateralmente */}
       <Sidebar />
-      
-      <main 
-        className={cn(
-          "flex-1 transition-all duration-300 min-h-screen flex flex-col",
-          isSidebarOpen ? "pl-64" : "pl-20"
-        )}
-      >
-        <Header />
-        
-        <div className="p-8 flex-1 overflow-x-hidden">
-          <AnimatePresence mode="wait">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-            >
-              <Outlet />
-            </motion.div>
-          </AnimatePresence>
-        </div>
 
-        <footer className="p-8 border-t text-center text-sm text-muted-foreground">
-          &copy; {new Date().getFullYear()} PG Financial ERP. Todos os direitos reservados.
-        </footer>
-      </main>
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Header - Fixo no topo */}
+        <Header />
+
+        {/* Main Content Area - Role individualmente */}
+        <main className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-track-transparent scrollbar-thumb-muted">
+          <div className="p-4 md:p-8 animate-in fade-in slide-in-from-bottom-3 duration-500">
+            <Outlet />
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

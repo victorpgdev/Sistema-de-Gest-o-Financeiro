@@ -38,19 +38,18 @@ function App() {
             <Route path="/master"    element={<MasterDashboard />} />
 
             {/* Financeiro */}
-            <Route path="/contas"      element={<BankAccounts />} />
-            <Route path="/cartoes"     element={<CreditCards />} />
-            <Route path="/conciliacao" element={<BankReconciliation />} />
-            <Route path="/receber"     element={<Transactions />} />
-            <Route path="/pagar"       element={<Transactions />} />
+            <Route path="/accounts"       element={<BankAccounts />} />
+            <Route path="/cards"          element={<CreditCards />} />
+            <Route path="/reconciliation" element={<BankReconciliation />} />
+            <Route path="/transactions"   element={<Transactions />} />
             
             {/* Ferramentas */}
             <Route path="/cobrancas"   element={<PlaceholderPage title="Régua de Cobrança" desc="Configuração de lembretes e alertas para não perder vencimentos." />} />
             <Route path="/metas"       element={<PlaceholderPage title="Metas e Orçamentos" desc="Definição de metas financeiras para planejamento futuro." />} />
 
             {/* Análise */}
-            <Route path="/fluxo"       element={<CashFlow />} />
-            <Route path="/relatorios"  element={<Reports />} />
+            <Route path="/cash-flow"      element={<CashFlow />} />
+            <Route path="/reports"        element={<Reports />} />
 
             {/* Sistema */}
             <Route path="/configuracoes" element={<PlaceholderPage title="Configurações" desc="Suas preferências de conta e segurança." />} />
