@@ -146,7 +146,7 @@ export function CashFlow() {
                 tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
               <Tooltip
                 contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0' }}
-                formatter={(v: number) => formatCurrency(v)}
+                formatter={(v: any) => formatCurrency(v as number)}
               />
               <Legend wrapperStyle={{ fontSize: 12, fontWeight: 600 }} />
               <Bar dataKey="entrada" fill="#10b981" name="Entradas" radius={[4, 4, 0, 0]} opacity={0.85} />

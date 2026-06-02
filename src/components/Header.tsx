@@ -12,7 +12,7 @@ const notifications = [
 ];
 
 export function Header() {
-  const { user, tenant } = useAuthStore();
+  const { user, tenant, logout } = useAuthStore();
   const [isDark, setIsDark] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('theme') === 'dark' ||
@@ -136,7 +136,10 @@ export function Header() {
                 </button>
               </div>
               <div className="py-1 border-t">
-                <button className="flex items-center gap-3 w-full px-4 py-2.5 text-sm hover:bg-muted transition-colors text-rose-600">
+                <button 
+                  onClick={logout}
+                  className="flex items-center gap-3 w-full px-4 py-2.5 text-sm hover:bg-muted transition-colors text-rose-600"
+                >
                   <LogOut className="w-4 h-4" /> Sair
                 </button>
               </div>

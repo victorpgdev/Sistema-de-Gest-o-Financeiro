@@ -181,7 +181,7 @@ export function Dashboard() {
                   tickFormatter={(v: number) => v >= 1000 ? `${v / 1000}k` : String(v)} />
                 <Tooltip
                   contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0' }}
-                  formatter={(v: number) => formatCurrency(v)}
+                  formatter={(v: any) => formatCurrency(v as number)}
                 />
                 <Area type="monotone" dataKey="receita" stroke="#3b82f6" strokeWidth={3} fill="url(#gRec)" name="Receita" />
                 <Area type="monotone" dataKey="despesa" stroke="#ef4444" strokeWidth={2.5} fill="url(#gDes)" name="Despesa" />
@@ -201,7 +201,7 @@ export function Dashboard() {
                 <YAxis hide />
                 <Tooltip
                   contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0' }}
-                  formatter={(v: number) => formatCurrency(v)}
+                  formatter={(v: any) => formatCurrency(v as number)}
                 />
                 <Bar dataKey="value" radius={[8, 8, 0, 0]}>
                   {CATEGORY_DATA.map((c, i) => <Cell key={i} fill={c.color} />)}
