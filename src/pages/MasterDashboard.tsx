@@ -155,48 +155,69 @@ export function MasterDashboard() {
                   <th className="px-6 py-4 text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border/50">
+            <tbody className="divide-y divide-border/50">
                 {isLoading ? (
                   <tr><td colSpan={5} className="py-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></td></tr>
                 ) : activeTab === 'tenants' ? (
-                  tenants.map(t => (
-                    <tr key={t.id} className="hover:bg-muted/10 transition-colors group">
-                      <td className="px-6 py-4">
-                        <div className="font-semibold text-sm">{t.name}</div>
-                        <div className="text-xs text-muted-foreground">#{t.id.substring(0,8)}</div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-muted-foreground">{t.document}</td>
-                      <td className="px-6 py-4 text-center text-xs font-bold text-primary">{t.plan}</td>
-                      <td className="px-6 py-4 text-center">
-                        <span className={cn(
-                          "px-2.5 py-1 rounded-full text-[10px] font-bold",
-                          t.status === 'active' ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600"
-                        )}>{t.status === 'active' ? 'ATIVA' : 'SUSPENSA'}</span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button className="p-2 hover:bg-muted rounded-lg opacity-0 group-hover:opacity-100 transition-all">
-                          <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
+                  tenants.length === 0 ? (
+                    <tr><td colSpan={5} className="py-20 text-center text-muted-foreground font-medium">Nenhuma empresa cadastrada.</td></tr>
+                  ) : (
+                    tenants.map(t => (
+                      <tr key={t.id} className="hover:bg-muted/10 transition-colors group">
+                        <td className="px-6 py-4">
+                          <div className="font-semibold text-sm">{t.name}</div>
+                          <div className="text-xs text-muted-foreground">#{t.id.substring(0,8)}</div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-muted-foreground">{t.document}</td>
+                        <td className="px-6 py-4 text-center text-xs font-bold text-primary">{t.plan}</td>
+                        <td className="px-6 py-4 text-center">
+                          <span className={cn(
+                            "px-2.5 py-1 rounded-full text-[10px] font-bold",
+                            t.status === 'active' ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600"
+                          )}>{t.status === 'active' ? 'ATIVA' : 'SUSPENSA'}</span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <button className="p-2 hover:bg-muted rounded-lg opacity-0 group-hover:opacity-100 transition-all">
+                            <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )
+                ) : (
+                  profiles.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-20 text-center space-y-4">
+                        <p className="text-muted-foreground font-medium">Nenhum perfil de usuário encontrado no banco.</p>
+                        <button 
+                          onClick={() => window.open('https://supabase.com/dashboard/project/' + import.meta.env.VITE_SUPABASE_PROJECT_ID + '/auth/users', '_blank')}
+                          className="text-xs font-bold text-primary underline"
+                        >
+                          Ir para o Painel de Autenticação do Supabase
                         </button>
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  profiles.map(p => (
-                    <tr key={p.id} className="hover:bg-muted/10 transition-colors group">
-                      <td className="px-6 py-4">
-                        <div className="font-semibold text-sm">{p.name || 'Sem Nome'}</div>
-                        <div className="text-xs text-muted-foreground">{p.email}</div>
-                      </td>
-                      <td className="px-6 py-4 text-sm font-medium text-muted-foreground">{p.tenant_name || 'MASTER'}</td>
-                      <td className="px-6 py-4 text-center">
-                        <span className="px-2 py-0.5 border rounded text-[10px] font-bold text-muted-foreground uppercase">{p.role}</span>
-                      </td>
-                      <td className="px-6 py-4 text-center text-xs text-muted-foreground">05/08/24</td>
-                      <td className="px-6 py-4 text-right cursor-pointer">
-                         <MoreHorizontal className="w-4 h-4 text-muted-foreground ml-auto" />
-                      </td>
-                    </tr>
-                  ))
+                  ) : (
+                    profiles.map(p => (
+                      <tr key={p.id} className="hover:bg-muted/10 transition-colors group">
+                        <td className="px-6 py-4">
+                          <div className="font-semibold text-sm">{p.name || 'Usuário sem Nome'}</div>
+                          <div className="text-xs text-muted-foreground">{p.email}</div>
+                        </td>
+                        <td className="px-6 py-4 text-sm font-medium text-muted-foreground">{p.tenant_name || 'ACESSO MASTER'}</td>
+                        <td className="px-6 py-4 text-center">
+                          <span className={cn(
+                            "px-2 py-0.5 border rounded text-[10px] font-bold uppercase",
+                            p.role === 'MASTER' ? "border-amber-200 bg-amber-50 text-amber-600" : "border-blue-200 bg-blue-50 text-blue-600"
+                          )}>{p.role}</span>
+                        </td>
+                        <td className="px-6 py-4 text-center text-xs text-muted-foreground">Membro Ativo</td>
+                        <td className="px-6 py-4 text-right cursor-pointer">
+                           <MoreHorizontal className="w-4 h-4 text-muted-foreground ml-auto" />
+                        </td>
+                      </tr>
+                    ))
+                  )
                 )}
               </tbody>
             </table>
