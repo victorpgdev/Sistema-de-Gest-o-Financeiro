@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { 
-  Plus, Search, Filter, ArrowUpCircle, ArrowDownCircle, 
+  Plus, Search, ArrowUpCircle, ArrowDownCircle, 
   MoreVertical, Edit2, Trash2, CheckCircle2, Clock, 
-  Download, X, Loader2
+  Download, X, Loader2, Filter
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency, cn } from '@/lib/utils';
 import { useAuthStore } from '@/store';
@@ -35,20 +36,15 @@ export function Transactions() {
         .order('due_date', { ascending: false });
 
       if (!error) setTransactions(data || []);
-    } catch (err) {
-      console.error(err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchTransactions();
-  }, []);
+  useEffect(() => { fetchTransactions(); }, []);
 
   const handleSave = async (formData: any) => {
     try {
-      // Prepara os dados de forma limpa
       const dataToSave: any = { 
         description: formData.description,
         amount: formData.amount,
@@ -58,23 +54,25 @@ export function Transactions() {
         tenant_id: user?.tenant_id || '235bacfd-ac10-4ab0-88ee-b50ada2bda4d'
       };
 
-      // Só envia a categoria se ela foi preenchida (evita erro de coluna faltante)
-      if (formData.category) {
-        dataToSave.category = formData.category;
-      }
+      if (formData.category) dataToSave.category = formData.category;
       
       const { error } = await supabase.from('transactions').insert([dataToSave]);
       
       if (error) {
-        console.error('Erro de Banco:', error);
         alert(`Erro ao salvar no banco: ${error.message}`);
       } else {
         fetchTransactions();
         setShowModal(false);
       }
     } catch (err) {
-      alert('Erro crítico de conexão com o site.');
+      alert('Erro crítico ao salvar transação.');
     }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Deseja excluir este lançamento?')) return;
+    const { error } = await supabase.from('transactions').delete().eq('id', id);
+    if (!error) fetchTransactions();
   };
 
   const handleToggleStatus = async (id: string, currentStatus: string) => {
@@ -83,65 +81,51 @@ export function Transactions() {
     fetchTransactions();
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Excluir transação?')) return;
-    await supabase.from('transactions').delete().eq('id', id);
-    fetchTransactions();
-  };
-
-  const handleExport = () => {
-    const headers = 'Data,Descricao,Valor,Tipo,Status\n';
-    const rows = transactions.map(t => `${t.due_date},${t.description},${t.amount},${t.type},${t.status}`).join('\n');
-    const blob = new Blob([headers + rows], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'transacoes.csv';
-    a.click();
-  };
-
   const filtered = transactions.filter(t => 
     t.description.toLowerCase().includes(searchTerm.toLowerCase()) && 
     (filterType === 'all' || t.type === filterType)
   );
 
   return (
-    <div className="space-y-8 pb-12">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-8 max-w-7xl mx-auto px-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Movimentações</h1>
-          <p className="text-muted-foreground font-medium text-sm">Controle real de entradas e saídas.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Movimentações</h1>
+          <p className="text-sm text-muted-foreground font-medium">Controle todas as suas receitas e despesas.</p>
         </div>
         <div className="flex gap-3">
-          <button onClick={handleExport} className="px-5 py-3 border-2 rounded-2xl font-bold hover:bg-muted transition-all flex items-center gap-2">
-            <Download className="w-5 h-5" /> Exportar
+          <button className="px-5 py-2.5 border rounded-xl text-sm font-semibold hover:bg-muted transition-all flex items-center gap-2">
+            <Download className="w-4 h-4" /> Exportar
           </button>
           <button 
             onClick={() => setShowModal(true)}
-            className="px-6 py-3 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/30 flex items-center gap-2 hover:scale-105 transition-all"
+            className="px-5 py-2.5 bg-primary text-primary-foreground rounded-xl font-semibold shadow-lg shadow-primary/20 flex items-center gap-2 hover:bg-primary/90 transition-all"
           >
-            <Plus className="w-5 h-5" /> Novo Lançamento
+            <Plus className="w-4 h-4" /> Novo Lançamento
           </button>
         </div>
       </div>
 
-      <div className="bg-card border rounded-[2.5rem] shadow-sm overflow-hidden">
-        <div className="p-6 border-b flex items-center justify-between gap-4 bg-muted/20">
-           <div className="relative flex-1 max-w-md">
+      <div className="bg-card border rounded-2xl shadow-sm overflow-hidden">
+        <div className="p-6 border-b flex flex-col md:flex-row items-center justify-between gap-4">
+           <div className="relative flex-1 w-full md:max-w-md">
              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
              <input 
-               placeholder="Pesquisar..." 
+               placeholder="Pesquisar transação..." 
                value={searchTerm}
                onChange={e => setSearchTerm(e.target.value)}
-               className="w-full pl-11 pr-4 py-3 bg-muted border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20"
+               className="w-full pl-11 pr-4 py-2.5 bg-muted/40 border rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-primary/20"
              />
            </div>
-           <div className="flex gap-1 p-1 bg-muted rounded-xl">
+           <div className="flex bg-muted/40 p-1 rounded-xl border">
              {['all', 'income', 'expense'].map(t => (
                <button 
                 key={t}
                 onClick={() => setFilterType(t as any)}
-                className={cn("px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest", filterType === t ? "bg-card shadow text-primary" : "text-muted-foreground")}
+                className={cn(
+                  "px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all", 
+                  filterType === t ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"
+                )}
                >
                  {t === 'all' ? 'Tudo' : t === 'income' ? 'Receitas' : 'Despesas'}
                </button>
@@ -150,47 +134,60 @@ export function Transactions() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-muted/10 text-left text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+          <table className="w-full text-left">
+            <thead className="bg-muted/30 border-b text-xs font-semibold text-muted-foreground">
               <tr>
-                <th className="px-8 py-5">Data</th>
-                <th className="px-6 py-5">Descrição</th>
-                <th className="px-6 py-5">Categoria</th>
-                <th className="px-6 py-5 text-right">Valor</th>
-                <th className="px-6 py-5">Status</th>
-                <th className="px-8 py-5 text-right">Ações</th>
+                <th className="px-8 py-4">Data</th>
+                <th className="px-6 py-4">Descrição</th>
+                <th className="px-6 py-4 text-center">Categoria</th>
+                <th className="px-6 py-4 text-right">Valor</th>
+                <th className="px-6 py-4 text-center">Status</th>
+                <th className="px-8 py-4 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
               {isLoading ? (
-                <tr><td colSpan={6} className="py-20 text-center"><Loader2 className="w-10 h-10 animate-spin mx-auto text-primary" /></td></tr>
+                <tr><td colSpan={6} className="py-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={6} className="py-20 text-center text-muted-foreground font-bold">Nenhuma transação encontrada.</td></tr>
+                <tr><td colSpan={6} className="py-20 text-center text-muted-foreground font-medium">Nenhum lançamento encontrado.</td></tr>
               ) : filtered.map(t => (
                 <tr key={t.id} className="hover:bg-muted/10 transition-colors group">
-                  <td className="px-8 py-5 text-sm font-bold text-muted-foreground">{new Date(t.due_date).toLocaleDateString()}</td>
+                  <td className="px-8 py-5 text-sm font-medium text-muted-foreground">{new Date(t.due_date).toLocaleDateString()}</td>
                   <td className="px-6 py-5">
                     <div className="flex items-center gap-3">
-                       <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", t.type === 'income' ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600")}>
+                       <div className={cn(
+                         "w-8 h-8 rounded-lg flex items-center justify-center", 
+                         t.type === 'income' ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600"
+                       )}>
                          {t.type === 'income' ? <ArrowUpCircle className="w-4 h-4" /> : <ArrowDownCircle className="w-4 h-4" />}
                        </div>
-                       <span className="font-extrabold text-sm uppercase tracking-tight">{t.description}</span>
+                       <span className="font-semibold text-sm">{t.description}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-5"><span className="px-2 py-1 bg-muted rounded-md text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t.category}</span></td>
-                  <td className={cn("px-6 py-5 text-right font-black text-sm tabular-nums", t.type === 'income' ? "text-emerald-600" : "text-rose-600")}>
+                  <td className="px-6 py-5 text-center">
+                    <span className="px-2 py-0.5 bg-muted border rounded text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t.category || 'GERAL'}</span>
+                  </td>
+                  <td className={cn(
+                    "px-6 py-5 text-right font-bold text-sm tabular-nums", 
+                    t.type === 'income' ? "text-emerald-600" : "text-rose-600"
+                  )}>
                     {t.type === 'income' ? '+' : '-'} {formatCurrency(t.amount)}
                   </td>
-                  <td className="px-6 py-5">
+                  <td className="px-6 py-5 text-center">
                     <button 
                       onClick={() => handleToggleStatus(t.id, t.status)}
-                      className={cn("px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all", t.status === 'paid' ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600")}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold transition-all", 
+                        t.status === 'paid' ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600 hover:bg-amber-500/20"
+                      )}
                     >
-                      {t.status === 'paid' ? 'Efetivado' : 'Pendente'}
+                      {t.status === 'paid' ? 'EFETIVADO' : 'PENDENTE'}
                     </button>
                   </td>
                   <td className="px-8 py-5 text-right">
-                    <button onClick={() => handleDelete(t.id)} className="p-2 hover:bg-rose-50 text-rose-500 rounded-lg opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="w-4 h-4" /></button>
+                    <button onClick={() => handleDelete(t.id)} className="p-2 hover:bg-rose-50 text-rose-500 rounded-lg opacity-0 group-hover:opacity-100 transition-all">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -199,9 +196,14 @@ export function Transactions() {
         </div>
       </div>
 
-      {showModal && (
-        <TransactionModal onClose={() => setShowModal(false)} onSave={handleSave} />
-      )}
+      <AnimatePresence>
+        {showModal && (
+          <TransactionModal 
+            onClose={() => setShowModal(false)} 
+            onSave={handleSave} 
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -213,32 +215,56 @@ function TransactionModal({ onClose, onSave }: any) {
     type: 'income',
     status: 'pending',
     due_date: new Date().toISOString().split('T')[0],
-    category: 'Outros'
+    category: ''
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60 backdrop-blur-md" onClick={onClose}>
-      <div className="bg-card border rounded-[3rem] p-10 w-full max-w-lg shadow-2xl space-y-8 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-        <div className="flex justify-between items-center">
-          <h2 className="text-3xl font-black uppercase tracking-tighter">Novo Lançamento</h2>
-          <button onClick={onClose} className="p-2 hover:bg-muted rounded-2xl transition-all"><X className="w-6 h-6" /></button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-background/80 backdrop-blur-sm">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        className="bg-card border rounded-2xl p-8 w-full max-w-lg shadow-2xl relative"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-xl font-semibold">Novo Lançamento</h2>
+          <button onClick={onClose} className="p-2 hover:bg-muted rounded-full transition-colors"><X className="w-5 h-5" /></button>
         </div>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-2 p-1.5 bg-muted rounded-2xl">
-            <button onClick={() => setForm({...form, type: 'income'})} className={cn("py-3 rounded-xl font-black text-xs uppercase transition-all", form.type === 'income' ? "bg-emerald-500 text-white shadow-lg" : "text-muted-foreground")}>Receita</button>
-            <button onClick={() => setForm({...form, type: 'expense'})} className={cn("py-3 rounded-xl font-black text-xs uppercase transition-all", form.type === 'expense' ? "bg-rose-500 text-white shadow-lg" : "text-muted-foreground")}>Despesa</button>
+
+        <div className="space-y-5">
+          <div className="flex bg-muted/40 p-1 rounded-xl border">
+            <button onClick={() => setForm({...form, type: 'income'})} className={cn("flex-1 py-2.5 rounded-lg font-semibold text-xs transition-all", form.type === 'income' ? "bg-emerald-500 text-white shadow-lg" : "text-muted-foreground")}>RECEITA</button>
+            <button onClick={() => setForm({...form, type: 'expense'})} className={cn("flex-1 py-2.5 rounded-lg font-semibold text-xs transition-all", form.type === 'expense' ? "bg-rose-500 text-white shadow-lg" : "text-muted-foreground")}>DESPESA</button>
           </div>
-          <input className="w-full p-5 bg-muted border-none rounded-2xl outline-none focus:ring-4 focus:ring-primary/20 font-bold" placeholder="Descrição" value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-muted-foreground ml-1">Descrição</label>
+            <input className="w-full p-4 bg-muted/40 border rounded-xl outline-none focus:ring-2 focus:ring-primary/20 font-medium" placeholder="Ex: Venda de Produto" value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
-            <input className="w-full p-5 bg-muted border-none rounded-2xl outline-none focus:ring-4 focus:ring-primary/20 font-bold tabular-nums" type="number" placeholder="Valor (R$)" value={form.amount || ''} onChange={e => setForm({...form, amount: Number(e.target.value)})} />
-            <input className="w-full p-5 bg-muted border-none rounded-2xl outline-none focus:ring-4 focus:ring-primary/20 font-bold" type="date" value={form.due_date} onChange={e => setForm({...form, due_date: e.target.value})} />
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground ml-1">Valor (R$)</label>
+              <input className="w-full p-4 bg-muted/40 border rounded-xl outline-none tabular-nums" type="number" value={form.amount || ''} onChange={e => setForm({...form, amount: Number(e.target.value)})} />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground ml-1">Data</label>
+              <input className="w-full p-4 bg-muted/40 border rounded-xl outline-none" type="date" value={form.due_date} onChange={e => setForm({...form, due_date: e.target.value})} />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+             <label className="text-xs font-semibold text-muted-foreground ml-1">Categoria (Opcional)</label>
+             <input className="w-full p-4 bg-muted/40 border rounded-xl outline-none" placeholder="Ex: Vendas, Alimentação..." value={form.category} onChange={e => setForm({...form, category: e.target.value})} />
           </div>
         </div>
-        <div className="flex gap-4">
-          <button onClick={onClose} className="flex-1 py-5 border-2 rounded-2xl font-black uppercase text-xs hover:bg-muted transition-all">Cancelar</button>
-          <button onClick={() => onSave(form)} className="flex-1 py-5 bg-primary text-white rounded-2xl font-black uppercase text-xs shadow-xl shadow-primary/30 active:scale-95 transition-all">Salvar Lançamento</button>
+
+        <div className="flex gap-4 mt-8 pt-6 border-t font-semibold">
+          <button onClick={onClose} className="flex-1 py-3 border rounded-xl hover:bg-muted transition-colors">Cancelar</button>
+          <button onClick={() => onSave(form)} className="flex-1 py-3 bg-primary text-primary-foreground rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/90">Salvar Lançamento</button>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
