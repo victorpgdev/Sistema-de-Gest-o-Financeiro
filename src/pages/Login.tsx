@@ -39,15 +39,9 @@ export function Login() {
     window.open('https://wa.me/5511999999999?text=Olá! Gostaria de adquirir uma licença do sistema PG Financial.', '_blank');
   };
 
-  const handleDevLogin = () => {
-    const { setUser } = useAuthStore.getState();
-    setUser({
-      id: 'dev-master',
-      name: 'Victor Hugo (Dev)',
-      email: 'victorhugoperea89@gmail.com',
-      role: 'MASTER',
-      tenant_id: 'dev-tenant'
-    });
+  const handleDevLogin = async () => {
+    const { login } = useAuthStore.getState();
+    await login('victorhugoperea89@gmail.com', 'bypass');
     navigate('/');
   };
 
