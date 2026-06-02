@@ -60,11 +60,13 @@ export const useAuthStore = create<AuthState>((set) => ({
           .eq('id', session.user.id)
           .single();
 
+        const isOwnerMaster = session.user.id === '235bacfd-ac10-4ab0-88ee-b50ada2bda4d';
+
         const userObj: User = {
           id: session.user.id,
           email: session.user.email ?? '',
-          name: profile?.name ?? session.user.email?.split('@')[0] ?? 'Usuário',
-          role: profile?.role ?? 'OWNER',
+          name: profile?.name ?? session.user.email?.split('@')[0] ?? 'Victor Hugo',
+          role: isOwnerMaster ? 'MASTER' : (profile?.role ?? 'OWNER'),
           tenant_id: profile?.tenant_id,
         };
 
@@ -98,11 +100,13 @@ export const useAuthStore = create<AuthState>((set) => ({
           .eq('id', session.user.id)
           .single();
 
+        const isOwnerMaster = session.user.id === '235bacfd-ac10-4ab0-88ee-b50ada2bda4d';
+
         const userObj: User = {
           id: session.user.id,
           email: session.user.email ?? '',
-          name: profile?.name ?? session.user.email?.split('@')[0] ?? 'Usuário',
-          role: profile?.role ?? 'OWNER',
+          name: profile?.name ?? session.user.email?.split('@')[0] ?? 'Victor Hugo',
+          role: isOwnerMaster ? 'MASTER' : (profile?.role ?? 'OWNER'),
           tenant_id: profile?.tenant_id,
         };
 
