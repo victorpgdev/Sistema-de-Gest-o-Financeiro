@@ -1,30 +1,30 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: 'MASTER' | 'OWNER' | 'FINANCE' | 'VIEWER';
-  tenant_id?: string;
-}
-
 interface Tenant {
   id: string;
   name: string;
-  plan: string;
+  plan: 'Basic' | 'Pro' | 'Enterprise';
+  status: 'active' | 'suspended';
+}
+
+interface User {
+  id: string;
+  email: string;
+  name: string | null;
+  role: 'MASTER' | 'OWNER' | 'FINANCE' | 'VIEWER';
+  tenant_id: string | null;
+  status: 'active' | 'banned';
 }
 
 interface AuthState {
   user: User | null;
   tenant: Tenant | null;
-  isLoading: boolean;
   isAuthenticated: boolean;
-  setUser: (user: User | null) => void;
-  setTenant: (tenant: Tenant | null) => void;
-  setLoading: (loading: boolean) => void;
-  logout: () => Promise<void>;
+  isLoading: boolean;
   initialize: () => Promise<void>;
+  logout: () => Promise<void>;
+  setLoading: (loading: boolean) => void;
 }
 
 interface UIState {
@@ -35,11 +35,9 @@ interface UIState {
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   tenant: null,
-  isLoading: true,
   isAuthenticated: false,
+  isLoading: true,
 
-  setUser: (user) => set({ user, isAuthenticated: !!user }),
-  setTenant: (tenant) => set({ tenant }),
   setLoading: (isLoading) => set({ isLoading }),
 
   logout: async () => {
@@ -48,83 +46,44 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   initialize: async () => {
-    set({ isLoading: true });
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
-        // Fetch Profile
+        // Busca Perfil
         const { data: profile } = await supabase
           .from('profiles')
           .select('*, tenants(*)')
           .eq('id', session.user.id)
           .single();
 
-        const isOwnerMaster = session.user.id === '235bacfd-ac10-4ab0-88ee-b50ada2bda4d';
+        if (profile) {
+          const userObj: User = {
+            id: profile.id,
+            email: profile.email,
+            name: profile.name,
+            role: profile.role,
+            tenant_id: profile.tenant_id,
+            status: profile.status || 'active'
+          };
 
-        const userObj: User = {
-          id: session.user.id,
-          email: session.user.email ?? '',
-          name: profile?.name ?? session.user.email?.split('@')[0] ?? 'Victor Hugo',
-          role: isOwnerMaster ? 'MASTER' : (profile?.role ?? 'OWNER'),
-          tenant_id: profile?.tenant_id,
-        };
+          // Override MASTER
+          if (profile.id === '235bacfd-ac10-4ab0-88ee-b50ada2bda4d') {
+            userObj.role = 'MASTER';
+          }
 
-        const tenantObj: Tenant | null = profile?.tenants ? {
-          id: profile.tenants.id,
-          name: profile.tenants.name,
-          plan: profile.tenants.plan,
-        } : null;
-
-        set({
-          isAuthenticated: true,
-          user: userObj,
-          tenant: tenantObj,
-        });
+          set({
+            isAuthenticated: true,
+            user: userObj,
+            tenant: profile.tenants as any as Tenant,
+          });
+        }
       } else {
         set({ isAuthenticated: false, user: null, tenant: null });
       }
-    } catch (err) {
-      console.error('Auth check error:', err);
-      set({ isAuthenticated: false, user: null, tenant: null });
     } finally {
       set({ isLoading: false });
     }
-
-    // Auth change listener
-    supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*, tenants(*)')
-          .eq('id', session.user.id)
-          .single();
-
-        const isOwnerMaster = session.user.id === '235bacfd-ac10-4ab0-88ee-b50ada2bda4d';
-
-        const userObj: User = {
-          id: session.user.id,
-          email: session.user.email ?? '',
-          name: profile?.name ?? session.user.email?.split('@')[0] ?? 'Victor Hugo',
-          role: isOwnerMaster ? 'MASTER' : (profile?.role ?? 'OWNER'),
-          tenant_id: profile?.tenant_id,
-        };
-
-        const tenantObj: Tenant | null = profile?.tenants ? {
-          id: profile.tenants.id,
-          name: profile.tenants.name,
-          plan: profile.tenants.plan,
-        } : null;
-
-        set({
-          isAuthenticated: true,
-          user: userObj,
-          tenant: tenantObj,
-        });
-      } else if (event === 'SIGNED_OUT') {
-        set({ isAuthenticated: false, user: null, tenant: null });
-      }
-    });
   },
 }));
 

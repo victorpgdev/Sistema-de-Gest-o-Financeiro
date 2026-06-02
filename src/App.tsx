@@ -28,16 +28,16 @@ function App() {
     );
   }
 
-  // Lógica de Bloqueio de Licença (Multi-tenant)
-  // Se o usuário não for MASTER e a empresa estiver suspensa, bloqueia.
-  const isAccountBlocked = user?.role !== 'MASTER' && tenant?.status === 'suspended';
+  // Lógica de Bloqueio de Licença (Multi-tenant) e Bloqueio Individual
+  // Se o usuário for banido INDIVIDUALMENTE ou se a EMPRESA estiver suspensa, bloqueia.
+  const isAccountBlocked = user?.role !== 'MASTER' && (tenant?.status === 'suspended' || user?.status === 'banned');
 
   return (
     <BrowserRouter>
       <Routes>
         {isAuthenticated ? (
           isAccountBlocked ? (
-            <Route path="*" element={<BlockedAccountScreen />} />
+            <Route path="*" element={<BlockedAccountScreen message={user?.status === 'banned' ? 'Sua conta individual foi suspensa pelo administrador.' : 'A licença desta empresa expirou ou está suspensa.'} />} />
           ) : (
             <Route element={<DashboardLayout />}>
               <Route path="/"          element={<Dashboard />} />
@@ -66,7 +66,7 @@ function App() {
   );
 }
 
-function BlockedAccountScreen() {
+function BlockedAccountScreen({ message }: { message: string }) {
   const { logout } = useAuthStore();
   return (
     <div className="h-screen w-screen bg-background flex items-center justify-center p-6">
@@ -75,9 +75,9 @@ function BlockedAccountScreen() {
           <ShieldAlert className="w-10 h-10" />
         </div>
         <div className="space-y-2">
-          <h2 className="text-2xl font-bold tracking-tight">Acesso Suspenso</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Acesso Interrompido</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Sua licença de uso expirou ou foi suspensa por falta de pagamento. Entre em contato com o suporte Master para regularizar sua situação.
+            {message}
           </p>
         </div>
         <div className="pt-4 space-y-3">
