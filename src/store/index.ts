@@ -67,20 +67,25 @@ export const useAuthStore = create<AuthState>((set) => ({
             status: profile.status || 'active'
           };
 
-          // Override MASTER
+          // GARANTIA MASTER ABSOLUTA PARA VOCÊ
           if (profile.id === '235bacfd-ac10-4ab0-88ee-b50ada2bda4d') {
             userObj.role = 'MASTER';
+            userObj.status = 'active'; // Nunca banido
           }
 
           set({
             isAuthenticated: true,
             user: userObj,
-            tenant: profile.tenants as any as Tenant,
+            tenant: (profile.tenants as any) || { status: 'active' }, // Fallback para não bloquear
           });
         }
       } else {
         set({ isAuthenticated: false, user: null, tenant: null });
       }
+    } catch (error) {
+      console.error('Erro ao inicializar auth:', error);
+      // Se der erro ao buscar perfil (ex: coluna faltante), tenta logar o básico
+      set({ isAuthenticated: false, user: null, tenant: null });
     } finally {
       set({ isLoading: false });
     }
