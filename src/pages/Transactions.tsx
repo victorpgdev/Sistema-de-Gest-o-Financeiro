@@ -48,18 +48,32 @@ export function Transactions() {
 
   const handleSave = async (formData: any) => {
     try {
-      // Inclui o tenant_id se disponível
-      const dataToSave = { ...formData, tenant_id: user?.tenant_id };
+      // Prepara os dados de forma limpa
+      const dataToSave: any = { 
+        description: formData.description,
+        amount: formData.amount,
+        type: formData.type,
+        due_date: formData.due_date,
+        status: formData.status,
+        tenant_id: user?.tenant_id || '235bacfd-ac10-4ab0-88ee-b50ada2bda4d'
+      };
+
+      // Só envia a categoria se ela foi preenchida (evita erro de coluna faltante)
+      if (formData.category) {
+        dataToSave.category = formData.category;
+      }
+      
       const { error } = await supabase.from('transactions').insert([dataToSave]);
       
       if (error) {
-        alert('Erro ao salvar no banco: ' + error.message);
+        console.error('Erro de Banco:', error);
+        alert(`Erro ao salvar no banco: ${error.message}`);
       } else {
         fetchTransactions();
         setShowModal(false);
       }
     } catch (err) {
-      alert('Erro de conexão.');
+      alert('Erro crítico de conexão com o site.');
     }
   };
 
