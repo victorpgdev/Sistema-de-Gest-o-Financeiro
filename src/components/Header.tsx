@@ -1,160 +1,221 @@
-import { useState, useEffect } from 'react';
-import { Bell, Search, Moon, Sun, ChevronDown, LogOut, Settings, User } from 'lucide-react';
-import { useAuthStore } from '@/store';
+import { useState } from 'react';
+import { 
+  Bell, Moon, Sun, Search, User, LogOut, Settings, 
+  ChevronDown, CheckCircle2, Info, AlertTriangle, 
+  CheckCheck
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useAuthStore, useUIStore } from '@/store';
 import { cn } from '@/lib/utils';
-import { formatCurrency } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom';
 
-const notifications = [
-  { id: 1, type: 'warning', title: 'Conta a pagar vencendo',  body: 'Fornecedor ABC – R$ 1.200 vence amanhã', time: '5 min', read: false },
-  { id: 2, type: 'success', title: 'Pagamento recebido',       body: 'Cliente X efetuou pagamento de R$ 4.500', time: '1h',    read: false },
-  { id: 3, type: 'info',    title: 'Boleto gerado',             body: 'Fatura #1042 foi emitida com sucesso',    time: '2h',    read: true  },
-  { id: 4, type: 'warning', title: 'Licença vencendo',          body: 'Sua licença vence em 14 dias',            time: '1d',    read: true  },
-];
+interface Notification {
+  id: string;
+  title: string;
+  desc: string;
+  time: string;
+  type: 'info' | 'success' | 'warning';
+  read: boolean;
+}
 
 export function Header() {
-  const { user, tenant, logout } = useAuthStore();
-  const [isDark, setIsDark] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('theme') === 'dark' ||
-        document.documentElement.classList.contains('dark');
-    }
-    return false;
-  });
+  const navigate = useNavigate();
+  const { user, logout } = useAuthStore();
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showProfile, setShowProfile] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
-  useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [isDark]);
+  const [notifications, setNotifications] = useState<Notification[]>([
+    { id: '1', title: 'Conta a pagar vencendo', desc: 'Fornecedor ABC – R$ 1.200 vence amanhã', time: '5 min', type: 'warning', read: false },
+    { id: '2', title: 'Pagamento recebido', desc: 'Cliente X efetuou pagamento de R$ 4.500', time: '1h', type: 'success', read: false },
+    { id: '3', title: 'Boleto gerado', desc: 'Fatura #1042 foi emitida com sucesso', time: '2h', type: 'info', read: true },
+    { id: '4', title: 'Licença vencendo', desc: 'Sua licença vence em 14 dias', time: '1d', type: 'warning', read: true },
+  ]);
 
-  const unread = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const markAsRead = (id: string) => {
+    setNotifications(notifications.map(n => n.id === id ? { ...n, read: true } : n));
+  };
+
+  const markAllAsRead = () => {
+    setNotifications(notifications.map(n => ({ ...n, read: true })));
+  };
 
   return (
-    <header className="h-16 border-b bg-card/90 backdrop-blur-md sticky top-0 z-40 px-6 flex items-center justify-between gap-4">
-      {/* Search */}
-      <div className="relative max-w-sm w-full hidden md:block">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <input
-          type="text"
-          placeholder="Buscar transações, contatos..."
-          className="w-full pl-10 pr-4 py-2 bg-muted/50 rounded-full text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+    <header className="h-20 border-b bg-background/80 backdrop-blur-md px-8 flex items-center justify-between sticky top-0 z-40">
+      <div className="relative w-full max-w-md hidden md:block">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <input 
+          placeholder="Buscar transações, contatos..." 
+          className="w-full pl-11 pr-4 py-2.5 bg-muted/40 border-none rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-primary/20 transition-all"
         />
       </div>
 
-      <div className="flex items-center gap-2 ml-auto">
-        {/* Dark mode */}
-        <button
-          onClick={() => setIsDark(!isDark)}
-          className="p-2 hover:bg-muted rounded-full transition-colors text-muted-foreground"
-          title={isDark ? 'Modo Claro' : 'Modo Escuro'}
-        >
-          {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+      <div className="flex items-center gap-2 md:gap-6 ml-auto">
+        <button className="p-3 hover:bg-muted rounded-2xl transition-all relative group">
+          <Moon className="w-5 h-5 text-muted-foreground group-hover:rotate-12 transition-transform" />
         </button>
 
-        {/* Notifications */}
+        {/* Notificações */}
         <div className="relative">
-          <button
-            onClick={() => { setShowNotifications(!showNotifications); setShowProfile(false); }}
-            className="p-2 hover:bg-muted rounded-full transition-colors text-muted-foreground relative"
+          <button 
+            onClick={() => { setShowNotifications(!showNotifications); setShowUserMenu(false); }}
+            className={cn(
+              "p-3 hover:bg-muted rounded-2xl transition-all relative group",
+              showNotifications && "bg-muted"
+            )}
           >
-            <Bell className="w-5 h-5" />
-            {unread > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-card" />
+            <Bell className="w-5 h-5 text-muted-foreground group-hover:shake-animation" />
+            {unreadCount > 0 && (
+              <span className="absolute top-2.5 right-2.5 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-background animate-pulse">
+                {unreadCount}
+              </span>
             )}
           </button>
 
-          {showNotifications && (
-            <div className="absolute right-0 top-full mt-2 w-96 bg-card border rounded-2xl shadow-xl shadow-black/10 z-50 overflow-hidden">
-              <div className="px-5 py-4 border-b flex items-center justify-between">
-                <span className="font-bold">Notificações</span>
-                {unread > 0 && (
-                  <span className="text-xs font-bold bg-rose-500 text-white px-2 py-0.5 rounded-full">{unread} novas</span>
-                )}
-              </div>
-              <div className="max-h-80 overflow-y-auto divide-y divide-border/50">
-                {notifications.map(n => (
-                  <div key={n.id} className={cn(
-                    'flex items-start gap-3 px-5 py-4 hover:bg-muted/30 transition-colors cursor-pointer',
-                    !n.read && 'bg-primary/5'
-                  )}>
-                    <div className={cn(
-                      'w-2 h-2 rounded-full mt-2 shrink-0',
-                      n.type === 'warning' ? 'bg-amber-500' :
-                      n.type === 'success' ? 'bg-emerald-500' : 'bg-blue-500'
-                    )} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold">{n.title}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{n.body}</p>
+          <AnimatePresence>
+            {showNotifications && (
+              <>
+                <div className="fixed inset-0" onClick={() => setShowNotifications(false)} />
+                <motion.div 
+                  initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  className="absolute right-0 mt-3 w-[400px] bg-card border rounded-[2rem] shadow-2xl overflow-hidden z-50 origin-top-right"
+                >
+                  <div className="p-6 border-b flex items-center justify-between bg-muted/20">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold">Notificações</h3>
+                      {unreadCount > 0 && <span className="px-2 py-0.5 bg-rose-500/10 text-rose-600 text-[10px] font-black rounded-full uppercase tracking-tighter">{unreadCount} novas</span>}
                     </div>
-                    <span className="text-xs text-muted-foreground shrink-0">{n.time}</span>
+                    <button 
+                      onClick={markAllAsRead}
+                      className="text-[10px] font-black text-primary hover:underline flex items-center gap-1 uppercase tracking-widest"
+                    >
+                      <CheckCheck className="w-3 h-3" /> Limpar Tudo
+                    </button>
                   </div>
-                ))}
-              </div>
-              <div className="px-5 py-3 border-t text-center">
-                <button className="text-sm text-primary font-semibold hover:underline">Ver todas as notificações</button>
-              </div>
-            </div>
-          )}
+
+                  <div className="max-h-[450px] overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="py-20 text-center text-muted-foreground italic text-sm">Nenhuma notificação por aqui.</div>
+                    ) : (
+                      notifications.map(n => (
+                        <div 
+                          key={n.id}
+                          onClick={() => markAsRead(n.id)}
+                          className={cn(
+                            "p-5 border-b hover:bg-muted/30 transition-all cursor-pointer flex items-start gap-4 active:scale-95",
+                            !n.read && "bg-primary/5"
+                          )}
+                        >
+                          <div className={cn(
+                            "w-10 h-10 rounded-2xl flex items-center justify-center shrink-0",
+                            n.type === 'warning' ? "bg-amber-100 text-amber-600" :
+                            n.type === 'success' ? "bg-emerald-100 text-emerald-600" :
+                            "bg-blue-100 text-blue-600"
+                          )}>
+                            {n.type === 'warning' ? <AlertTriangle className="w-5 h-5" /> : 
+                             n.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : 
+                             <Info className="w-5 h-5" />}
+                          </div>
+                          <div className="flex-1 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <h4 className={cn("text-sm font-bold", !n.read ? "text-foreground" : "text-muted-foreground")}>{n.title}</h4>
+                              <span className="text-[10px] font-bold text-muted-foreground">{n.time}</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{n.desc}</p>
+                          </div>
+                          {!n.read && (
+                            <div className="w-2 h-2 bg-primary rounded-full mt-1.5 animate-pulse" />
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  <button className="w-full p-5 text-sm font-bold text-primary hover:bg-muted/50 transition-colors bg-muted/20">
+                    Ver todas as notificações
+                  </button>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
         </div>
 
-        <div className="h-8 w-px bg-border mx-1" />
-
-        {/* Profile */}
+        {/* Menu do Usuário */}
         <div className="relative">
-          <button
-            onClick={() => { setShowProfile(!showProfile); setShowNotifications(false); }}
-            className="flex items-center gap-2.5 pl-2 pr-3 py-1.5 hover:bg-muted rounded-xl transition-colors"
+          <button 
+            onClick={() => { setShowUserMenu(!showUserMenu); setShowNotifications(false); }}
+            className="flex items-center gap-3 p-1.5 pr-4 hover:bg-muted rounded-2xl transition-all group"
           >
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
-              {(user?.name?.[0] ?? 'A').toUpperCase()}
+            <div className="w-10 h-10 bg-primary text-white rounded-xl flex items-center justify-center font-bold shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform uppercase">
+              {user?.name?.[0] || 'U'}
             </div>
-            <div className="hidden md:block text-left">
-              <p className="text-sm font-bold leading-tight">{user?.name ?? 'Administrador'}</p>
-              <p className="text-xs text-muted-foreground leading-tight">{tenant?.name ?? 'Empresa Teste'}</p>
+            <div className="hidden lg:block text-left">
+              <p className="text-xs font-bold leading-none mb-1">{user?.name || 'Usuário'}</p>
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{user?.role === 'MASTER' ? 'Master Panel' : 'Administrador'}</p>
             </div>
-            <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform', showProfile && 'rotate-180')} />
+            <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform duration-300", showUserMenu && "rotate-180")} />
           </button>
 
-          {showProfile && (
-            <div className="absolute right-0 top-full mt-2 w-56 bg-card border rounded-2xl shadow-xl shadow-black/10 z-50 overflow-hidden">
-              <div className="px-4 py-3 border-b">
-                <p className="font-bold text-sm">{user?.name ?? 'Administrador'}</p>
-                <p className="text-xs text-muted-foreground">{user?.email ?? 'admin@empresa.com'}</p>
-              </div>
-              <div className="py-1">
-                <button className="flex items-center gap-3 w-full px-4 py-2.5 text-sm hover:bg-muted transition-colors">
-                  <User className="w-4 h-4 text-muted-foreground" /> Meu Perfil
-                </button>
-                <button className="flex items-center gap-3 w-full px-4 py-2.5 text-sm hover:bg-muted transition-colors">
-                  <Settings className="w-4 h-4 text-muted-foreground" /> Configurações
-                </button>
-              </div>
-              <div className="py-1 border-t">
-                <button 
-                  onClick={logout}
-                  className="flex items-center gap-3 w-full px-4 py-2.5 text-sm hover:bg-muted transition-colors text-rose-600"
+          <AnimatePresence>
+            {showUserMenu && (
+              <>
+                <div className="fixed inset-0" onClick={() => setShowUserMenu(false)} />
+                <motion.div 
+                  initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  className="absolute right-0 mt-3 w-64 bg-card border rounded-[2rem] shadow-2xl overflow-hidden z-50 origin-top-right p-2"
                 >
-                  <LogOut className="w-4 h-4" /> Sair
-                </button>
-              </div>
-            </div>
-          )}
+                  <button className="w-full flex items-center gap-3 px-5 py-4 hover:bg-muted rounded-2xl text-sm font-bold transition-all group">
+                    <User className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" /> Meus Dados
+                  </button>
+                  {user?.role === 'MASTER' && (
+                    <button 
+                      onClick={() => { navigate('/master'); setShowUserMenu(false); }}
+                      className="w-full flex items-center gap-3 px-5 py-4 hover:bg-amber-500/10 rounded-2xl text-sm font-bold transition-all group text-amber-600"
+                    >
+                      <ShieldCheck className="w-5 h-5 group-hover:scale-110 transition-transform" /> Master Admin
+                    </button>
+                  )}
+                  <button className="w-full flex items-center gap-3 px-5 py-4 hover:bg-muted rounded-2xl text-sm font-bold transition-all group">
+                    <Settings className="w-5 h-5 text-muted-foreground group-hover:rotate-45 transition-transform" /> Configurações
+                  </button>
+                  <div className="my-2 border-t border-dashed" />
+                  <button 
+                    onClick={logout}
+                    className="w-full flex items-center gap-3 px-5 py-4 hover:bg-rose-500/10 rounded-2xl text-sm font-bold text-rose-600 transition-all group"
+                  >
+                    <LogOut className="w-5 h-5 group-hover:translate-x-1 transition-transform" /> Sair do Sistema
+                  </button>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
         </div>
       </div>
-
-      {/* Click outside to close */}
-      {(showNotifications || showProfile) && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => { setShowNotifications(false); setShowProfile(false); }}
-        />
-      )}
     </header>
+  );
+}
+
+function ShieldCheck(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
   );
 }
