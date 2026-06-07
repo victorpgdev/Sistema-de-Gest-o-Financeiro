@@ -1,17 +1,14 @@
 import { 
   LayoutDashboard, 
   ArrowUpRight, 
-  ArrowDownRight, 
   Wallet, 
   CreditCard, 
-  FileText, 
   BarChart3, 
-  CheckCircle2, 
   Settings, 
   ChevronLeft,
-  ShieldCheck,
   Building2,
-  Users
+  Users,
+  GraduationCap
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useUIStore, useAuthStore } from '@/store';
@@ -25,6 +22,7 @@ const MENU_ITEMS = [
   { icon: Wallet, label: 'Contas e Bancos', path: '/accounts' },
   { icon: CreditCard, label: 'Cartões de Crédito', path: '/cards' },
   { icon: Users, label: 'Minha Equipe', path: '/team' },
+  { icon: GraduationCap, label: 'PG Academy', path: '/help' },
 ];
 
 export function Sidebar() {

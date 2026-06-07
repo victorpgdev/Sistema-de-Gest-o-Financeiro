@@ -11,6 +11,7 @@ import { CashFlow }       from './pages/CashFlow';
 import { Reports }        from './pages/Reports';
 import { Team }           from './pages/Team';
 import { Settings }       from './pages/Settings';
+import { Help }           from './pages/Help';
 import { useEffect } from 'react';
 import { useAuthStore } from './store';
 import { Loader2, ShieldAlert } from 'lucide-react';
@@ -49,6 +50,7 @@ function App() {
               <Route path="/reports"        element={<Reports />} />
               <Route path="/team"           element={<Team />} />
               <Route path="/settings"       element={<Settings />} />
+              <Route path="/help"           element={<Help />} />
               
               {/* Fallbacks */}
               <Route path="/cobrancas"   element={<PlaceholderPage title="Régua de Cobrança" desc="Em breve." />} />
