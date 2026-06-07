@@ -44,7 +44,6 @@ function App() {
               <Route path="/master"    element={<MasterDashboard />} />
               <Route path="/accounts"       element={<BankAccounts />} />
               <Route path="/cards"          element={<CreditCards />} />
-              <Route path="/reconciliation" element={<BankReconciliation />} />
               <Route path="/transactions"   element={<Transactions />} />
               <Route path="/cash-flow"      element={<CashFlow />} />
               <Route path="/reports"        element={<Reports />} />

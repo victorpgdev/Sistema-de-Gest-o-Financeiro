@@ -24,7 +24,6 @@ const MENU_ITEMS = [
   { icon: ArrowUpRight, label: 'Movimentações', path: '/transactions' },
   { icon: Wallet, label: 'Contas e Bancos', path: '/accounts' },
   { icon: CreditCard, label: 'Cartões de Crédito', path: '/cards' },
-  { icon: CheckCircle2, label: 'Conciliação', path: '/reconciliation' },
   { icon: Users, label: 'Minha Equipe', path: '/team' },
 ];
 
