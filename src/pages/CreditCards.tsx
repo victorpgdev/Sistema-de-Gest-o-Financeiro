@@ -64,22 +64,30 @@ export function CreditCards() {
 
   const handleSave = async (formData: any) => {
     const bankColor = MAJOR_BANKS.find(b => formData.name.includes(b.name))?.color || 'bg-slate-800';
+    setIsLoading(true);
     try {
       const { error } = await supabase.from('credit_cards').insert([{
-        ...formData,
+        name: formData.name,
+        limit: formData.limit,
+        last_digits: formData.last_digits,
+        closing_day: formData.closing_day,
+        due_day: formData.due_day,
+        current_bill: formData.current_bill,
         color: bankColor,
-        tenant_id: user?.tenant_id || '235bacfd-ac10-4ab0-88ee-b50ada2bda4d'
+        tenant_id: user?.tenant_id
       }]);
 
       if (error) {
-        setNotification({ type: 'error', message: `Erro: ${error.message}` });
+        setNotification({ type: 'error', message: `Erro ao salvar: ${error.message}` });
       } else {
-        setNotification({ type: 'success', message: 'Cartão adicionado com sucesso!' });
+        setNotification({ type: 'success', message: 'Cartão configurado com sucesso!' });
         fetchCards();
         setShowModal(false);
       }
-    } catch (err) {
-      setNotification({ type: 'error', message: 'Erro de conexão.' });
+    } catch (err: any) {
+      setNotification({ type: 'error', message: 'Erro crítico de conexão.' });
+    } finally {
+      setIsLoading(false);
     }
   };
 
