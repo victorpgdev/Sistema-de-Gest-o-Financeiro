@@ -79,14 +79,18 @@ export const useAuthStore = create<AuthState>((set) => ({
             tenant_id: profile.tenant_id,
             status: profile.status || 'active'
           };
-          set({ user: userObj, tenant: profile.tenants as any, isAuthenticated: true });
+          set({ 
+            user: userObj, 
+            tenant: profile.tenants as any, 
+            isAuthenticated: true,
+            isLoading: false 
+          });
         }
       }
     } catch (err) {
+      set({ isAuthenticated: false, isLoading: false });
       console.error('Erro de login:', err);
       throw err;
-    } finally {
-      set({ isLoading: false });
     }
   },
 
