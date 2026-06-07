@@ -21,7 +21,8 @@ export function Login() {
       await login(email, password);
       navigate('/');
     } catch (err: any) {
-      setError(err.message || 'Acesso negado. Verifique suas credenciais.');
+      setError('E-mail ou senha incorretos. Verifique seus dados.');
+      setPassword(''); // Limpa apenas a senha para segurança
       setIsLoggingIn(false);
     }
   };
