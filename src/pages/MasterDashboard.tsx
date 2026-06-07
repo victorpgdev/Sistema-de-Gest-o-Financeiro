@@ -250,6 +250,18 @@ export function MasterDashboard() {
               <div className="space-y-4">
                 <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Selecione a Organização</label>
                 <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+                  {showLinkModal.tenant_id && (
+                    <button
+                      onClick={() => handleLinkTenant(showLinkModal.id, null as any)}
+                      className="w-full flex items-center justify-between p-4 bg-rose-500/5 hover:bg-rose-500/10 border-2 border-dashed border-rose-500/30 rounded-2xl transition-all group mb-4"
+                    >
+                      <div className="flex items-center gap-3">
+                         <Ban className="w-5 h-5 text-rose-500" />
+                         <span className="font-bold text-sm text-rose-600">Desvincular desta Empresa</span>
+                      </div>
+                    </button>
+                  )}
+                  
                   {tenants.map(tenant => (
                     <button
                       key={tenant.id}
