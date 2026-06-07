@@ -1,42 +1,23 @@
 import { useState, useEffect } from 'react';
 import { 
-  Building2, Users, ShieldCheck, Loader2, X, MoreHorizontal,
-  Calendar, Lock, Unlock, Trash2, Search, Edit3, CheckCircle2,
-  AlertCircle, ChevronRight, UserX, UserCheck
+  Building2, Users, Shield, Plus, Search, 
+  MoreVertical, Edit2, Trash2, CheckCircle2, 
+  X, Loader2, Filter, Globe, Calendar, 
+  CreditCard, Ban, Key
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { formatCurrency, cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store';
-import { Navigate } from 'react-router-dom';
-
-interface Tenant {
-  id: string;
-  name: string;
-  document: string;
-  plan: string;
-  status: 'active' | 'suspended';
-  expires_at?: string;
-}
-
-interface Profile {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  status: 'active' | 'banned';
-  tenant_name?: string;
-}
+import { formatCurrency, cn } from '@/lib/utils';
 
 export function MasterDashboard() {
-  const { user: currentUser } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<'tenants' | 'users'>('tenants');
-  const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const { user } = useAuthStore();
+  const [activeTab, setActiveTab] = useState<'tenants' | 'profiles'>('tenants');
+  const [tenants, setTenants] = useState<any[]>([]);
+  const [profiles, setProfiles] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  
-  const [showEditTenant, setShowEditTenant] = useState<Tenant | null>(null);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -60,180 +41,214 @@ export function MasterDashboard() {
 
   useEffect(() => { fetchData(); }, []);
 
-  const toggleTenantStatus = async (id: string, currentStatus: string) => {
-    const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
-    await supabase.from('tenants').update({ status: newStatus }).eq('id', id);
-    fetchData();
-  };
+  const handleCreateClient = async (form: any) => {
+    setIsLoading(true);
+    try {
+      // 1. Criar o Tenant (Chave Única)
+      const { data: tenant, error: tError } = await supabase
+        .from('tenants')
+        .insert([{ name: form.companyName, plan: form.plan, status: 'active' }])
+        .select()
+        .single();
 
-  const toggleUserStatus = async (id: string, currentStatus: string) => {
-    const newStatus = currentStatus === 'active' ? 'banned' : 'active';
-    const { error } = await supabase.from('profiles').update({ status: newStatus }).eq('id', id);
-    if (!error) fetchData();
-  };
+      if (tError) throw tError;
 
-  const handleUpdateTenant = async (formData: any) => {
-    const { error } = await supabase.from('tenants').update(formData).eq('id', showEditTenant?.id);
-    if (!error) {
+      // 2. Criar o Perfil vinculado ao Tenant via Chave
+      const { error: pError } = await supabase
+        .from('profiles')
+        .insert([{ 
+          email: form.email, 
+          name: form.clientName, 
+          role: 'OWNER', 
+          tenant_id: tenant.id,
+          status: 'active'
+        }]);
+
+      if (pError) throw pError;
+
+      alert('Cliente e Empresa criados com Separação Total!');
+      setShowModal(false);
       fetchData();
-      setShowEditTenant(null);
+    } catch (err: any) {
+      alert(`Erro: ${err.message}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const filteredTenants = tenants.filter(t => t.name.toLowerCase().includes(searchTerm.toLowerCase()));
-  const filteredUsers = profiles.filter(p => p.email.toLowerCase().includes(searchTerm.toLowerCase()) || p.name?.toLowerCase().includes(searchTerm.toLowerCase()));
-
-  if (currentUser?.role !== 'MASTER') return <Navigate to="/" replace />;
+  const filteredTenants = tenants.filter(t => t.name?.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredProfiles = profiles.filter(p => p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || p.email?.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto px-4 pb-20">
-      {/* Header Premium */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="flex items-start gap-4">
-           <div className="w-14 h-14 bg-amber-500/10 text-amber-600 rounded-3xl flex items-center justify-center shadow-inner">
-              <ShieldCheck className="w-8 h-8" />
-           </div>
-           <div>
-              <h1 className="text-2xl font-bold tracking-tight">Painel Master</h1>
-              <p className="text-sm text-muted-foreground font-medium">Controle de acessos e licenciamento global.</p>
-           </div>
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-amber-500/10 text-amber-600 rounded-2xl flex items-center justify-center">
+            <Shield className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Painel Master</h1>
+            <p className="text-sm text-muted-foreground font-medium">Controle de acessos e licenciamento global.</p>
+          </div>
         </div>
-        
-        <div className="flex bg-muted/40 p-1 rounded-2xl border backdrop-blur-sm">
-          <button onClick={() => { setActiveTab('tenants'); setSearchTerm(''); }} className={cn("px-6 py-2.5 rounded-xl text-xs font-bold transition-all uppercase tracking-widest", activeTab === 'tenants' ? "bg-background shadow-md text-primary" : "text-muted-foreground")}>Empresas</button>
-          <button onClick={() => { setActiveTab('users'); setSearchTerm(''); }} className={cn("px-6 py-2.5 rounded-xl text-xs font-bold transition-all uppercase tracking-widest", activeTab === 'users' ? "bg-background shadow-md text-primary" : "text-muted-foreground")}>Usuários</button>
+        <div className="flex bg-muted/40 p-1 rounded-2xl border">
+          <button onClick={() => setActiveTab('tenants')} className={cn("px-6 py-2 rounded-xl text-xs font-bold uppercase transition-all", activeTab === 'tenants' ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground")}>EMPRESAS</button>
+          <button onClick={() => setActiveTab('profiles')} className={cn("px-6 py-2 rounded-xl text-xs font-bold uppercase transition-all", activeTab === 'profiles' ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground")}>USUÁRIOS</button>
         </div>
       </div>
 
-      {/* Toolbar */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-card p-4 border rounded-3xl shadow-sm">
-         <div className="relative w-full md:max-w-md">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input 
-              placeholder={activeTab === 'tenants' ? "Buscar empresa..." : "Buscar usuário..."}
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-muted/30 border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-primary/20 transition-all outline-none"
-            />
-         </div>
+      <div className="flex gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input 
+            placeholder={activeTab === 'tenants' ? "Buscar empresa..." : "Buscar usuário..."}
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="w-full pl-11 pr-4 py-3 bg-card border rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-primary/20"
+          />
+        </div>
+        <button 
+          onClick={() => setShowModal(true)}
+          className="px-6 py-3 bg-primary text-white rounded-2xl font-bold shadow-xl shadow-primary/20 flex items-center gap-2 hover:scale-105 transition-all"
+        >
+          <Plus className="w-5 h-5" /> Novo Cliente
+        </button>
       </div>
 
-      {/* Listagem */}
-      <div className="bg-card border rounded-[2rem] shadow-xl shadow-muted/20 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-muted/30 border-b text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-              <tr>
-                {activeTab === 'tenants' ? (
-                  <>
+      <div className="bg-card border rounded-[2.5rem] shadow-sm overflow-hidden">
+        {isLoading ? (
+          <div className="py-20 text-center"><Loader2 className="w-10 h-10 animate-spin mx-auto text-primary opacity-20" /></div>
+        ) : (
+          <div className="overflow-x-auto">
+            {activeTab === 'tenants' ? (
+              <table className="w-full text-left">
+                <thead className="bg-muted/30 border-b text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-none">
+                  <tr>
                     <th className="px-8 py-5">Organização</th>
-                    <th className="px-6 py-5 text-center">Status</th>
-                    <th className="px-6 py-5 text-center">Plano</th>
+                    <th className="px-6 py-5">Status</th>
+                    <th className="px-6 py-5">Plano</th>
+                    <th className="px-6 py-5">ID Único (Chave)</th>
                     <th className="px-8 py-5 text-right">Ações</th>
-                  </>
-                ) : (
-                  <>
-                    <th className="px-8 py-5">Usuário</th>
-                    <th className="px-6 py-5 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {filteredTenants.map(t => (
+                    <tr key={t.id} className="hover:bg-muted/10 transition-colors">
+                      <td className="px-8 py-5 font-bold">{t.name}</td>
+                      <td className="px-6 py-5">
+                        <span className={cn("px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest", t.status === 'active' ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600")}>{t.status}</span>
+                      </td>
+                      <td className="px-6 py-5 font-bold text-xs">{t.plan}</td>
+                      <td className="px-6 py-5 text-xs font-mono opacity-40">{t.id}</td>
+                      <td className="px-8 py-5 text-right">
+                        <div className="flex justify-end gap-2">
+                           <button className="p-2 hover:bg-muted rounded-lg text-muted-foreground"><Edit2 className="w-4 h-4" /></button>
+                           <button className="p-2 hover:bg-rose-50 text-rose-500 rounded-lg"><Ban className="w-4 h-4" /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <table className="w-full text-left">
+                <thead className="bg-muted/30 border-b text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                  <tr>
+                    <th className="px-8 py-5">Nome / E-mail</th>
                     <th className="px-6 py-5">Empresa</th>
-                    <th className="px-8 py-5 text-right">Controles</th>
-                  </>
-                )}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/50">
-              {isLoading ? (
-                <tr><td colSpan={5} className="py-20 text-center"><Loader2 className="w-10 h-10 animate-spin mx-auto text-primary opacity-20" /></td></tr>
-              ) : activeTab === 'tenants' ? (
-                filteredTenants.map(t => (
-                  <tr key={t.id} className="hover:bg-muted/10 transition-colors group">
-                    <td className="px-8 py-6">
-                       <span className="font-bold text-sm block">{t.name}</span>
-                       <span className="text-[10px] text-muted-foreground uppercase">ID: {t.id.substring(0,8)}</span>
-                    </td>
-                    <td className="px-6 py-6 text-center">
-                       <span className={cn("px-3 py-1 rounded-full text-[10px] font-black", t.status === 'active' ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600")}>{t.status === 'active' ? "ATIVO" : "SUSPENSO"}</span>
-                    </td>
-                    <td className="px-6 py-6 text-center">
-                       <span className="px-3 py-1 bg-primary/5 text-primary rounded-full text-[10px] font-black">{t.plan}</span>
-                    </td>
-                    <td className="px-8 py-6 text-right">
-                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => toggleTenantStatus(t.id, t.status)} className="p-2 hover:bg-muted rounded-xl">{t.status === 'active' ? <Lock className="w-4 h-4 text-rose-500" /> : <Unlock className="w-4 h-4 text-emerald-600" />}</button>
-                          <button onClick={() => setShowEditTenant(t)} className="p-2 hover:bg-muted rounded-xl"><Edit3 className="w-4 h-4" /></button>
-                       </div>
-                    </td>
+                    <th className="px-6 py-5">Cargo</th>
+                    <th className="px-6 py-5">Status</th>
+                    <th className="px-8 py-5 text-right">Ações</th>
                   </tr>
-                ))
-              ) : (
-                filteredUsers.map(p => (
-                  <tr key={p.id} className="hover:bg-muted/10 transition-colors group">
-                    <td className="px-8 py-6">
-                       <span className="font-bold text-sm block">{p.name || 'Sem Perfil'}</span>
-                       <span className="text-xs text-muted-foreground">{p.email}</span>
-                    </td>
-                    <td className="px-6 py-6 text-center">
-                       <span className={cn("px-3 py-1 rounded-full text-[10px] font-black", p.status === 'active' ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600")}>{p.status === 'active' ? "ATIVO" : "BANIDO"}</span>
-                    </td>
-                    <td className="px-6 py-6">
-                       <span className="text-xs font-bold text-muted-foreground uppercase">{p.tenant_name || 'Master'}</span>
-                    </td>
-                    <td className="px-8 py-6 text-right">
-                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button 
-                            onClick={() => toggleUserStatus(p.id, p.status)} 
-                            className={cn("p-2 rounded-xl transition-all", p.status === 'active' ? "hover:bg-rose-50 text-rose-500" : "hover:bg-emerald-50 text-emerald-600")}
-                            title={p.status === 'active' ? 'Banir Usuário' : 'Desbanir Usuário'}
-                          >
-                             {p.status === 'active' ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
-                          </button>
-                          <button className="p-2 hover:bg-muted rounded-xl"><MoreHorizontal className="w-4 h-4" /></button>
-                       </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody className="divide-y">
+                  {filteredProfiles.map(p => (
+                    <tr key={p.id} className="hover:bg-muted/10 transition-colors">
+                      <td className="px-8 py-5">
+                        <p className="font-bold">{p.name}</p>
+                        <p className="text-xs text-muted-foreground">{p.email}</p>
+                      </td>
+                      <td className="px-6 py-5">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="w-3 h-3 text-muted-foreground" />
+                          <span className="font-bold text-xs">{p.tenant_name || 'N/A'}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-5 font-bold text-xs">{p.role}</td>
+                      <td className="px-6 py-5">
+                        <span className={cn("px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest", p.status === 'active' ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600")}>{p.status || 'active'}</span>
+                      </td>
+                      <td className="px-8 py-5 text-right">
+                         <button className="p-2 hover:bg-rose-50 text-rose-500 rounded-lg"><Ban className="w-4 h-4" /></button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
       </div>
 
       <AnimatePresence>
-        {showEditTenant && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-background/60 backdrop-blur-xl">
+        {showModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-background/80 backdrop-blur-xl">
              <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="bg-card border rounded-[3rem] p-10 w-full max-w-xl shadow-2xl relative">
                 <div className="flex justify-between items-center mb-8">
-                   <h2 className="text-2xl font-bold">Assinaturas e Licença</h2>
-                   <button onClick={() => setShowEditTenant(null)} className="p-2 bg-muted rounded-full"><X className="w-5 h-5" /></button>
+                   <h2 className="text-2xl font-bold tracking-tight">Novo Cliente (Separação Total)</h2>
+                   <button onClick={() => setShowModal(false)} className="p-3 bg-muted rounded-2xl hover:rotate-90 transition-all"><X className="w-6 h-6" /></button>
                 </div>
-                <div className="space-y-6">
-                   <div className="space-y-1.5">
-                      <label className="text-xs font-black text-muted-foreground uppercase opacity-60">Empresa</label>
-                      <input className="w-full p-4 bg-muted/40 border rounded-2xl font-bold" value={showEditTenant.name} onChange={e => setShowEditTenant({...showEditTenant, name: e.target.value})} />
-                   </div>
-                   <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                         <label className="text-xs font-black text-muted-foreground uppercase opacity-60">Plano</label>
-                         <select className="w-full p-4 bg-muted/40 border rounded-2xl font-bold" value={showEditTenant.plan} onChange={e => setShowEditTenant({...showEditTenant, plan: e.target.value as any})}>
-                            <option value="Basic">Basic</option>
-                            <option value="Pro">Pro</option>
-                            <option value="Enterprise">Enterprise</option>
-                         </select>
-                      </div>
-                      <div className="space-y-1.5">
-                         <label className="text-xs font-black text-muted-foreground uppercase opacity-60">Vencimento</label>
-                         <input type="date" className="w-full p-4 bg-muted/40 border rounded-2xl font-bold" value={showEditTenant.expires_at?.split('T')[0] || ''} onChange={e => setShowEditTenant({...showEditTenant, expires_at: e.target.value})} />
-                      </div>
-                   </div>
-                </div>
-                <div className="mt-10 flex gap-4">
-                   <button onClick={() => setShowEditTenant(null)} className="flex-1 py-4 border rounded-2xl font-bold text-muted-foreground">Cancelar</button>
-                   <button onClick={() => handleUpdateTenant(showEditTenant)} className="flex-1 py-4 bg-primary text-white rounded-2xl font-bold shadow-xl shadow-primary/20">Salvar Alterações</button>
-                </div>
+                <ClientForm onSave={handleCreateClient} onCancel={() => setShowModal(false)} />
              </motion.div>
           </div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function ClientForm({ onSave, onCancel }: any) {
+  const [form, setForm] = useState({
+    clientName: '',
+    email: '',
+    companyName: '',
+    plan: 'Basic'
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Nome do Responsável</label>
+          <input className="w-full p-4 bg-muted/40 border rounded-2xl outline-none font-bold" placeholder="Ex: João Silva" value={form.clientName} onChange={e => setForm({...form, clientName: e.target.value})} />
+        </div>
+        <div className="space-y-2">
+          <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">E-mail de Acesso</label>
+          <input className="w-full p-4 bg-muted/40 border rounded-2xl outline-none font-bold" placeholder="joao@email.com" value={form.email} onChange={e => setForm({...form, email: e.target.value})} />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Nome da Empresa (Cria Nova Chave)</label>
+        <div className="relative">
+          <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground opacity-40" />
+          <input className="w-full pl-12 pr-4 py-4 bg-muted/40 border rounded-2xl outline-none font-bold" placeholder="Ex: PG Digital Ltda" value={form.companyName} onChange={e => setForm({...form, companyName: e.target.value})} />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Plano de Licença</label>
+        <select className="w-full p-4 bg-muted/40 border rounded-2xl outline-none font-bold cursor-pointer" value={form.plan} onChange={e => setForm({...form, plan: e.target.value})}>
+           <option value="Basic">Basic (1 Usuário)</option>
+           <option value="Pro">Pro (Até 5 Usuários)</option>
+           <option value="Enterprise">Enterprise (Ilimitado)</option>
+        </select>
+      </div>
+
+      <div className="mt-8 pt-6 border-t flex gap-4">
+         <button onClick={onCancel} className="flex-1 py-4 border rounded-2xl font-bold hover:bg-muted">CANCELAR</button>
+         <button onClick={() => onSave(form)} className="flex-1 py-4 bg-primary text-white rounded-2xl font-bold shadow-xl shadow-primary/20 hover:scale-105 transition-all">CRIAR CLIENTE & CHAVE</button>
+      </div>
     </div>
   );
 }
