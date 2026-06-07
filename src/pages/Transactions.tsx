@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { 
   Plus, Search, ArrowUpCircle, ArrowDownCircle, 
   MoreVertical, Edit2, Trash2, CheckCircle2, Clock, 
-  Download, X, Loader2, Filter
+  Download, X, Loader2, Filter, AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
@@ -27,6 +27,8 @@ export function Transactions() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   
+  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
+
   const fetchTransactions = async () => {
     setIsLoading(true);
     try {
@@ -41,7 +43,13 @@ export function Transactions() {
     }
   };
 
-  useEffect(() => { fetchTransactions(); }, []);
+  useEffect(() => { 
+    fetchTransactions(); 
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
 
   const handleSave = async (formData: any) => {
     try {
@@ -59,20 +67,23 @@ export function Transactions() {
       const { error } = await supabase.from('transactions').insert([dataToSave]);
       
       if (error) {
-        alert(`Erro ao salvar no banco: ${error.message}`);
+        setNotification({ type: 'error', message: `Erro ao salvar: ${error.message}` });
       } else {
+        setNotification({ type: 'success', message: 'Lançamento salvo com sucesso!' });
         fetchTransactions();
         setShowModal(false);
       }
     } catch (err) {
-      alert('Erro crítico ao salvar transação.');
+      setNotification({ type: 'error', message: 'Erro crítico de conexão com o servidor.' });
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Deseja excluir este lançamento?')) return;
     const { error } = await supabase.from('transactions').delete().eq('id', id);
-    if (!error) fetchTransactions();
+    if (!error) {
+      setNotification({ type: 'success', message: 'Lançamento excluído.' });
+      fetchTransactions();
+    }
   };
 
   const handleToggleStatus = async (id: string, currentStatus: string) => {
@@ -87,7 +98,25 @@ export function Transactions() {
   );
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto px-4">
+    <div className="space-y-8 max-w-7xl mx-auto px-4 relative">
+      {/* Notificação Nativa */}
+      <AnimatePresence>
+        {notification && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+            className={cn(
+               "fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border backdrop-blur-md",
+               notification.type === 'success' ? "bg-emerald-500/90 text-white border-emerald-400" : "bg-rose-500/90 text-white border-rose-400"
+            )}
+          >
+            {notification.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+            <span className="font-bold text-sm tracking-tight">{notification.message}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Movimentações</h1>

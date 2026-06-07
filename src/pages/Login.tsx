@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { LayoutDashboard, Lock, Mail, ArrowRight, Loader2, AlertCircle, ShoppingBag, MessageCircle } from 'lucide-react';
+import { LayoutDashboard, Lock, Mail, ArrowRight, Loader2, AlertCircle, MessageCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store';
 
 export function Login() {
   const navigate = useNavigate();
+  const { login } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -18,31 +18,16 @@ export function Login() {
     setError(null);
 
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (signInError) {
-        setError('Acesso negado. Verifique suas credenciais ou entre em contato com o suporte.');
-        setIsLoggingIn(false);
-      } else {
-        navigate('/');
-      }
-    } catch (err) {
-      setError('Erro de conexão. Verifique sua internet.');
+      await login(email, password);
+      navigate('/');
+    } catch (err: any) {
+      setError(err.message || 'Acesso negado. Verifique suas credenciais.');
       setIsLoggingIn(false);
     }
   };
 
   const handleWhatsApp = () => {
     window.open('https://wa.me/5511999999999?text=Olá! Gostaria de adquirir uma licença do sistema PG Financial.', '_blank');
-  };
-
-  const handleDevLogin = async () => {
-    const { login } = useAuthStore.getState();
-    await login('victorhugoperea89@gmail.com', 'bypass');
-    navigate('/');
   };
 
   return (
@@ -52,22 +37,14 @@ export function Login() {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md"
       >
-        <button 
-          onClick={handleDevLogin}
-          className="absolute -top-12 left-0 right-0 py-2 bg-amber-500/10 text-amber-600 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-amber-500/20 transition-all border border-amber-500/20"
-        >
-          [ DEV BYPASS ] Entrar como Master sem Supabase
-        </button>
-
         <div className="bg-card border shadow-2xl rounded-[2.5rem] p-8 md:p-12 relative overflow-hidden">
-          {/* Subtle background decoration */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-2xl" />
           
           <div className="flex flex-col items-center mb-10 relative">
             <div className="w-20 h-20 bg-primary rounded-3xl flex items-center justify-center text-white mb-6 shadow-2xl shadow-primary/30 transform -rotate-6">
               <LayoutDashboard className="w-10 h-10" />
             </div>
-            <h1 className="text-4xl font-black tracking-tighter text-center">PG FINANCIAL</h1>
+            <h1 className="text-4xl font-bold tracking-tighter text-center">PG FINANCIAL</h1>
             <p className="text-muted-foreground mt-3 text-center text-sm font-medium">
               Gestão financeira exclusiva para clientes autorizados.
             </p>
@@ -101,9 +78,7 @@ export function Login() {
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-center justify-between ml-1">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Sua Senha</label>
-              </div>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Sua Senha</label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <input 
@@ -120,7 +95,7 @@ export function Login() {
             <button 
               type="submit"
               disabled={isLoggingIn}
-              className="w-full py-5 bg-primary text-white rounded-2xl font-black text-lg flex items-center justify-center gap-2 group hover:shadow-2xl hover:shadow-primary/40 transition-all active:scale-[0.98] disabled:opacity-50"
+              className="w-full py-5 bg-primary text-white rounded-2xl font-bold text-lg flex items-center justify-center gap-2 group hover:shadow-2xl hover:shadow-primary/40 transition-all active:scale-[0.98] disabled:opacity-50"
             >
               {isLoggingIn ? (
                 <Loader2 className="w-6 h-6 animate-spin" />
@@ -133,8 +108,8 @@ export function Login() {
             </button>
           </form>
 
-          <div className="mt-10 pt-8 border-t border-dashed relative">
-            <p className="text-center text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">
+          <div className="mt-10 pt-8 border-t border-dashed relative text-center">
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">
               Não possui uma licença?
             </p>
             <button 
@@ -145,10 +120,6 @@ export function Login() {
               SOLICITAR ACESSO VIA WHATSAPP
             </button>
           </div>
-
-          <p className="text-center text-[10px] text-muted-foreground mt-8 font-medium uppercase tracking-[0.2em] opacity-40">
-            © 2024 PG Financial ERP • Todos os direitos reservados
-          </p>
         </div>
       </motion.div>
     </div>
