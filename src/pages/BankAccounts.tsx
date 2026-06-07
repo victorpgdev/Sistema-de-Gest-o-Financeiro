@@ -28,13 +28,17 @@ export function BankAccounts() {
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
   const fetchAccounts = async () => {
+    if (!user?.tenant_id && user?.role !== 'MASTER') return;
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('bank_accounts')
-        .select('*')
-        .order('bank_name');
+      const query = supabase.from('bank_accounts').select('*');
+      
+      // Se não for MASTER (ou se o Master quiser ver apenas o dele), filtra por tenant_id
+      if (user?.tenant_id) {
+        query.eq('tenant_id', user.tenant_id);
+      }
 
+      const { data, error } = await query.order('bank_name');
       if (!error) setAccounts(data || []);
     } finally {
       setIsLoading(false);
@@ -42,18 +46,20 @@ export function BankAccounts() {
   };
 
   useEffect(() => { 
-    fetchAccounts(); 
-    if (notification) {
-      const timer = setTimeout(() => setNotification(null), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [notification]);
+    if (user) fetchAccounts(); 
+// ... (rest of useEffect)
+  }, [user, notification]);
 
   const handleSave = async (formData: any) => {
+    if (!user?.tenant_id) {
+      setNotification({ type: 'error', message: 'Erro: Usuário sem empresa vinculada.' });
+      return;
+    }
+    setIsLoading(true);
     try {
       const { error } = await supabase.from('bank_accounts').insert([{
         ...formData,
-        tenant_id: user?.tenant_id || '235bacfd-ac10-4ab0-88ee-b50ada2bda4d'
+        tenant_id: user.tenant_id
       }]);
 
       if (error) {

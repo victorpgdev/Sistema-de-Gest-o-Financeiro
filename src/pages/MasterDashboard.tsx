@@ -3,7 +3,7 @@ import {
   Building2, Users, Shield, Plus, Search, 
   MoreVertical, Edit2, Trash2, CheckCircle2, 
   X, Loader2, Filter, Globe, Calendar, 
-  CreditCard, Ban, Key
+  CreditCard, Ban, Key, AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
@@ -18,6 +18,7 @@ export function MasterDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -33,13 +34,19 @@ export function MasterDashboard() {
       setTenants(tRes.data || []);
       setProfiles(pRes.data.map(p => ({ ...p, tenant_name: p.tenants?.name })) || []);
     } catch (err: any) {
-      console.error('Erro ao buscar dados master:', err.message);
+      setNotification({ type: 'error', message: 'Erro ao sincronizar dados administrativos.' });
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { 
+    fetchData(); 
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
 
   const handleCreateClient = async (form: any) => {
     setIsLoading(true);
@@ -66,11 +73,11 @@ export function MasterDashboard() {
 
       if (pError) throw pError;
 
-      alert('Cliente e Empresa criados com Separação Total!');
+      setNotification({ type: 'success', message: 'Novo cliente ativado com sucesso!' });
       setShowModal(false);
       fetchData();
     } catch (err: any) {
-      alert(`Erro: ${err.message}`);
+      setNotification({ type: 'error', message: `Falha na ativação: ${err.message}` });
     } finally {
       setIsLoading(false);
     }
@@ -80,7 +87,22 @@ export function MasterDashboard() {
   const filteredProfiles = profiles.filter(p => p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || p.email?.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto px-4 pb-20">
+    <div className="space-y-8 max-w-7xl mx-auto px-4 pb-20 relative">
+      <AnimatePresence>
+        {notification && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className={cn(
+              "fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border backdrop-blur-md text-white font-bold text-sm",
+              notification.type === 'success' ? "bg-emerald-500/90 border-emerald-400" : "bg-rose-500/90 border-rose-400"
+            )}
+          >
+            {notification.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+            {notification.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-amber-500/10 text-amber-600 rounded-2xl flex items-center justify-center">
@@ -104,14 +126,14 @@ export function MasterDashboard() {
             placeholder={activeTab === 'tenants' ? "Buscar empresa..." : "Buscar usuário..."}
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            className="w-full pl-11 pr-4 py-3 bg-card border rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-primary/20"
+            className="w-full pl-11 pr-4 py-3 bg-card border rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-primary/20 transition-all font-bold"
           />
         </div>
         <button 
           onClick={() => setShowModal(true)}
-          className="px-6 py-3 bg-primary text-white rounded-2xl font-bold shadow-xl shadow-primary/20 flex items-center gap-2 hover:scale-105 transition-all"
+          className="px-6 py-3 bg-primary text-white rounded-2xl font-bold shadow-xl shadow-primary/20 flex items-center gap-2 hover:scale-105 active:scale-95 transition-all outline-none"
         >
-          <Plus className="w-5 h-5" /> Novo Cliente
+          <Plus className="w-5 h-5 transition-transform" /> Novo Cliente
         </button>
       </div>
 
@@ -133,7 +155,7 @@ export function MasterDashboard() {
                 </thead>
                 <tbody className="divide-y">
                   {filteredTenants.map(t => (
-                    <tr key={t.id} className="hover:bg-muted/10 transition-colors">
+                    <tr key={t.id} className="hover:bg-muted/10 transition-colors group">
                       <td className="px-8 py-5 font-bold">{t.name}</td>
                       <td className="px-6 py-5">
                         <span className={cn("px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest", t.status === 'active' ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600")}>{t.status}</span>
@@ -163,7 +185,7 @@ export function MasterDashboard() {
                 </thead>
                 <tbody className="divide-y">
                   {filteredProfiles.map(p => (
-                    <tr key={p.id} className="hover:bg-muted/10 transition-colors">
+                    <tr key={p.id} className="hover:bg-muted/10 transition-colors group">
                       <td className="px-8 py-5">
                         <p className="font-bold">{p.name}</p>
                         <p className="text-xs text-muted-foreground">{p.email}</p>
@@ -178,7 +200,7 @@ export function MasterDashboard() {
                       <td className="px-6 py-5">
                         <span className={cn("px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest", p.status === 'active' ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600")}>{p.status || 'active'}</span>
                       </td>
-                      <td className="px-8 py-5 text-right">
+                      <td className="px-8 py-5 text-right text-muted-foreground">
                          <button className="p-2 hover:bg-rose-50 text-rose-500 rounded-lg"><Ban className="w-4 h-4" /></button>
                       </td>
                     </tr>
@@ -195,7 +217,10 @@ export function MasterDashboard() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-background/80 backdrop-blur-xl">
              <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="bg-card border rounded-[3rem] p-10 w-full max-w-xl shadow-2xl relative">
                 <div className="flex justify-between items-center mb-8">
-                   <h2 className="text-2xl font-bold tracking-tight">Novo Cliente (Separação Total)</h2>
+                   <div className="space-y-1">
+                      <h2 className="text-2xl font-bold tracking-tight">Novo Cliente</h2>
+                      <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest opacity-60">Ativação de Empresa e Chave Única</p>
+                   </div>
                    <button onClick={() => setShowModal(false)} className="p-3 bg-muted rounded-2xl hover:rotate-90 transition-all"><X className="w-6 h-6" /></button>
                 </div>
                 <ClientForm onSave={handleCreateClient} onCancel={() => setShowModal(false)} />
@@ -220,25 +245,25 @@ function ClientForm({ onSave, onCancel }: any) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
           <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Nome do Responsável</label>
-          <input className="w-full p-4 bg-muted/40 border rounded-2xl outline-none font-bold" placeholder="Ex: João Silva" value={form.clientName} onChange={e => setForm({...form, clientName: e.target.value})} />
+          <input className="w-full p-4 bg-muted/40 border border-transparent focus:border-primary rounded-2xl outline-none font-bold transition-all" placeholder="Ex: João Silva" value={form.clientName} onChange={e => setForm({...form, clientName: e.target.value})} />
         </div>
         <div className="space-y-2">
           <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">E-mail de Acesso</label>
-          <input className="w-full p-4 bg-muted/40 border rounded-2xl outline-none font-bold" placeholder="joao@email.com" value={form.email} onChange={e => setForm({...form, email: e.target.value})} />
+          <input className="w-full p-4 bg-muted/40 border border-transparent focus:border-primary rounded-2xl outline-none font-bold transition-all" placeholder="joao@email.com" value={form.email} onChange={e => setForm({...form, email: e.target.value})} />
         </div>
       </div>
 
       <div className="space-y-2">
-        <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Nome da Empresa (Cria Nova Chave)</label>
+        <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Nome da Empresa</label>
         <div className="relative">
           <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground opacity-40" />
-          <input className="w-full pl-12 pr-4 py-4 bg-muted/40 border rounded-2xl outline-none font-bold" placeholder="Ex: PG Digital Ltda" value={form.companyName} onChange={e => setForm({...form, companyName: e.target.value})} />
+          <input className="w-full pl-12 pr-4 py-4 bg-muted/40 border border-transparent focus:border-primary rounded-2xl outline-none font-bold transition-all" placeholder="Ex: PG Digital Ltda" value={form.companyName} onChange={e => setForm({...form, companyName: e.target.value})} />
         </div>
       </div>
 
       <div className="space-y-2">
         <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Plano de Licença</label>
-        <select className="w-full p-4 bg-muted/40 border rounded-2xl outline-none font-bold cursor-pointer" value={form.plan} onChange={e => setForm({...form, plan: e.target.value})}>
+        <select className="w-full p-4 bg-muted/40 border border-transparent focus:border-primary rounded-2xl outline-none font-bold cursor-pointer appearance-none" value={form.plan} onChange={e => setForm({...form, plan: e.target.value})}>
            <option value="Basic">Basic (1 Usuário)</option>
            <option value="Pro">Pro (Até 5 Usuários)</option>
            <option value="Enterprise">Enterprise (Ilimitado)</option>
@@ -246,8 +271,8 @@ function ClientForm({ onSave, onCancel }: any) {
       </div>
 
       <div className="mt-8 pt-6 border-t flex gap-4">
-         <button onClick={onCancel} className="flex-1 py-4 border rounded-2xl font-bold hover:bg-muted">CANCELAR</button>
-         <button onClick={() => onSave(form)} className="flex-1 py-4 bg-primary text-white rounded-2xl font-bold shadow-xl shadow-primary/20 hover:scale-105 transition-all">CRIAR CLIENTE & CHAVE</button>
+         <button onClick={onCancel} className="flex-1 py-4 border rounded-[1.5rem] font-bold text-muted-foreground hover:bg-muted transition-all">CANCELAR</button>
+         <button onClick={() => onSave(form)} className="flex-1 py-4 bg-primary text-white rounded-[1.5rem] font-bold shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all">ATIVAR LICENÇA</button>
       </div>
     </div>
   );

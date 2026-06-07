@@ -30,13 +30,16 @@ export function Transactions() {
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
   const fetchTransactions = async () => {
+    if (!user?.tenant_id && user?.role !== 'MASTER') return;
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('*')
-        .order('due_date', { ascending: false });
+      const query = supabase.from('transactions').select('*');
+      
+      if (user?.tenant_id) {
+        query.eq('tenant_id', user.tenant_id);
+      }
 
+      const { data, error } = await query.order('due_date', { ascending: false });
       if (!error) setTransactions(data || []);
     } finally {
       setIsLoading(false);
@@ -44,14 +47,16 @@ export function Transactions() {
   };
 
   useEffect(() => { 
-    fetchTransactions(); 
-    if (notification) {
-      const timer = setTimeout(() => setNotification(null), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [notification]);
+    if (user) fetchTransactions(); 
+// ... (rest of useEffect)
+  }, [user, notification]);
 
   const handleSave = async (formData: any) => {
+    if (!user?.tenant_id) {
+      setNotification({ type: 'error', message: 'Erro: Identificador de empresa ausente.' });
+      return;
+    }
+    setIsLoading(true);
     try {
       const dataToSave: any = { 
         description: formData.description,
@@ -59,7 +64,7 @@ export function Transactions() {
         type: formData.type,
         due_date: formData.due_date,
         status: formData.status,
-        tenant_id: user?.tenant_id || '235bacfd-ac10-4ab0-88ee-b50ada2bda4d'
+        tenant_id: user.tenant_id
       };
 
       if (formData.category) dataToSave.category = formData.category;
