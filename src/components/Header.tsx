@@ -180,7 +180,7 @@ export function Header() {
                   >
                     <User className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" /> Meus Dados
                   </button>
-                  {user?.role === 'MASTER' && (
+                  {(user?.role === 'MASTER' || user?.email === 'victorhugoperea89@gmail.com') && (
                     <button 
                       onClick={() => { navigate('/master'); setShowUserMenu(false); }}
                       className="w-full flex items-center gap-3 px-5 py-4 hover:bg-amber-500/10 rounded-2xl text-sm font-bold transition-all group text-amber-600"
