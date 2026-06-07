@@ -12,16 +12,30 @@ import { Reports }        from './pages/Reports';
 import { Team }           from './pages/Team';
 import { Settings }       from './pages/Settings';
 import { Help }           from './pages/Help';
-import { useEffect } from 'react';
+import { Onboarding }     from './pages/Onboarding';
+import { useState, useEffect } from 'react';
+import { supabase } from './lib/supabase';
 import { useAuthStore } from './store';
 import { Loader2, ShieldAlert } from 'lucide-react';
 
 function App() {
   const { isAuthenticated, isLoading, initialize, tenant, user } = useAuthStore();
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
     initialize();
   }, [initialize]);
+
+  // Detecta primeiro acesso
+  useEffect(() => {
+    if (user && user.role !== 'MASTER') {
+      // Verifica se onboarding foi completado
+      supabase.from('profiles').select('onboarding_completed').eq('id', user.id).single()
+        .then(({ data }) => {
+          if (data && !data.onboarding_completed) setShowOnboarding(true);
+        });
+    }
+  }, [user]);
 
   if (isLoading) {
     return (
@@ -65,6 +79,11 @@ function App() {
           </>
         )}
       </Routes>
+
+      {/* Onboarding: aparece 1x no primeiro acesso do usuário */}
+      {isAuthenticated && showOnboarding && (
+        <Onboarding onComplete={() => setShowOnboarding(false)} />
+      )}
     </BrowserRouter>
   );
 }

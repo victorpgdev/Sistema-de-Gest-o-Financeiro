@@ -72,7 +72,15 @@ export function Settings() {
   const [profileForm, setProfileForm] = useState({
     name: user?.name || '',
     email: user?.email || '',
+    companyName: '',
   });
+
+  // Carrega o nome da empresa do tenant
+  useEffect(() => {
+    if (!user?.tenant_id) return;
+    supabase.from('tenants').select('name').eq('id', user.tenant_id).single()
+      .then(({ data }) => { if (data) setProfileForm(f => ({ ...f, companyName: data.name || '' })); });
+  }, [user?.tenant_id]);
 
   useEffect(() => {
     if (notification) {
@@ -85,15 +93,23 @@ export function Settings() {
     e.preventDefault();
     setIsLoading(true);
     try {
+      // Atualiza nome do perfil
       const { error } = await supabase
         .from('profiles')
         .update({ name: profileForm.name })
         .eq('id', user?.id);
-
       if (error) throw error;
 
-      setNotification({ type: 'success', message: 'Perfil atualizado com sucesso!' });
-      await initialize(); // Atualiza os dados no Store Global
+      // Atualiza nome da empresa no tenant → reflete no Painel Master
+      if (profileForm.companyName.trim() && user?.tenant_id) {
+        await supabase
+          .from('tenants')
+          .update({ name: profileForm.companyName.trim() })
+          .eq('id', user.tenant_id);
+      }
+
+      setNotification({ type: 'success', message: 'Perfil e empresa atualizados! ✅ Painel Master reflete a mudança.' });
+      await initialize();
     } catch (err: any) {
       setNotification({ type: 'error', message: `Erro ao atualizar: ${err.message}` });
     } finally {
