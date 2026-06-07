@@ -10,6 +10,7 @@ import { formatCurrency, cn } from '@/lib/utils';
 import { useAuthStore } from '@/store';
 import { GLOBAL_BANKS } from '@/lib/banks';
 import { checkPlanLimit, logAuditAction, PLAN_LIMITS } from '@/lib/limits';
+import { security } from '@/lib/security';
 
 interface BankAccount {
   id: string;
@@ -56,6 +57,14 @@ export function BankAccounts() {
       return;
     }
 
+    // HIGIENIZAÇÃO DE DADOS (Anti-XSS)
+    const sanitizedData = {
+      ...formData,
+      bank_name: security.sanitize(formData.bank_name),
+      agency: security.sanitize(formData.agency),
+      account_number: security.sanitize(formData.account_number)
+    };
+
     // VERIFICAÇÃO DE LIMITE DE PLANO
     const userPlan = tenant?.plan || 'Basic';
     const canAdd = await checkPlanLimit(user.tenant_id, userPlan, 'bankAccounts');
@@ -72,20 +81,18 @@ export function BankAccounts() {
     setIsLoading(true);
     try {
       const { error } = await supabase.from('bank_accounts').insert([{
-        ...formData,
+        ...sanitizedData,
         tenant_id: user.tenant_id
       }]);
 
       if (error) {
         setNotification({ type: 'error', message: `Erro ao salvar: ${error.message}` });
       } else {
-        await logAuditAction(user.tenant_id, user.id, 'CREATE_BANK_ACCOUNT', { bank: formData.bank_name });
+        await logAuditAction(user.tenant_id, user.id, 'CREATE_BANK_ACCOUNT', { bank: sanitizedData.bank_name });
         setNotification({ type: 'success', message: 'Conta cadastrada com sucesso!' });
         fetchAccounts();
         setShowModal(false);
       }
-    } catch (err) {
-      setNotification({ type: 'error', message: 'Erro de conexão com o servidor.' });
     } finally {
       setIsLoading(false);
     }
@@ -168,7 +175,7 @@ export function BankAccounts() {
             <div className="space-y-1">
               <h3 className="font-bold text-lg text-slate-700">{acc.bank_name}</h3>
               <p className="text-xs font-semibold text-muted-foreground uppercase opacity-60 tracking-wider font-mono">
-                Ag {acc.agency} • CC {acc.account_number}
+                Ag {security.maskFinancialData(acc.agency)} • CC {security.maskFinancialData(acc.account_number)}
               </p>
             </div>
             <div className="mt-6 pt-6 border-t flex items-center justify-between">

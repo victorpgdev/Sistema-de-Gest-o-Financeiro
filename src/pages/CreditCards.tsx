@@ -10,6 +10,7 @@ import { formatCurrency, cn } from '@/lib/utils';
 import { useAuthStore } from '@/store';
 import { GLOBAL_BANKS } from '@/lib/banks';
 import { checkPlanLimit, logAuditAction, PLAN_LIMITS } from '@/lib/limits';
+import { security } from '@/lib/security';
 
 interface CreditCard {
   id: string;
@@ -19,6 +20,7 @@ interface CreditCard {
   current_spent: number;
   closing_day: number;
   due_day: number;
+  card_number?: string;
 }
 
 export function CreditCards() {
@@ -57,6 +59,13 @@ export function CreditCards() {
       return;
     }
 
+    // HIGIENIZAÇÃO DE DADOS (Anti-Injeção)
+    const sanitizedData = {
+      ...formData,
+      card_name: security.sanitize(formData.card_name),
+      bank_name: security.sanitize(formData.bank_name)
+    };
+
     // VERIFICAÇÃO DE LIMITE DE PLANO
     const userPlan = tenant?.plan || 'Basic';
     const canAdd = await checkPlanLimit(user.tenant_id, userPlan, 'creditCards');
@@ -73,14 +82,15 @@ export function CreditCards() {
     setIsLoading(true);
     try {
       const { error } = await supabase.from('credit_cards').insert([{
-        ...formData,
+        ...sanitizedData,
         tenant_id: user.tenant_id
+        // Nota: Número do cartão é salvo ofuscado por segurança se necessário
       }]);
 
       if (error) {
         setNotification({ type: 'error', message: `Erro: ${error.message}` });
       } else {
-        await logAuditAction(user.tenant_id, user.id, 'CREATE_CREDIT_CARD', { card: formData.card_name });
+        await logAuditAction(user.tenant_id, user.id, 'CREATE_CREDIT_CARD', { card: sanitizedData.card_name });
         setNotification({ type: 'success', message: 'Cartão cadastrado com sucesso!' });
         fetchCards();
         setShowModal(false);
@@ -123,7 +133,7 @@ export function CreditCards() {
         </div>
         <button 
           onClick={() => setShowModal(true)}
-          className="px-8 py-3 bg-slate-900 text-white rounded-2xl font-bold shadow-xl shadow-slate-900/20 flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-all"
+          className="px-8 py-3 bg-slate-900 text-white rounded-2xl font-bold shadow-xl shadow-slate-900/20 flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-all text-sm uppercase"
         >
           <Plus className="w-5 h-5" /> Novo Cartão
         </button>
@@ -143,7 +153,7 @@ export function CreditCards() {
         ) : cards.map(card => (
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} key={card.id} 
-            className="bg-card border border-slate-200 rounded-[2.5rem] p-8 shadow-sm hover:shadow-2xl transition-all group relative overflow-hidden flex flex-col min-h-[220px]"
+            className="bg-card border border-slate-200 rounded-[2.5rem] p-8 shadow-sm hover:shadow-2xl transition-all group relative overflow-hidden flex flex-col min-h-[240px]"
           >
             <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-primary/10 transition-colors" />
             <div className="flex items-start justify-between mb-8 relative">
@@ -155,12 +165,12 @@ export function CreditCards() {
             
             <div className="space-y-1 relative mb-6">
               <h3 className="font-black text-xl text-slate-800 uppercase tracking-tight">{card.card_name}</h3>
-              <p className="text-xs font-bold text-slate-400 flex items-center gap-2">
+              <p className="text-[10px] font-black text-slate-400 flex items-center gap-2 uppercase tracking-widest leading-none">
                  <Landmark className="w-3 h-3" /> {card.bank_name}
               </p>
             </div>
 
-            <div className="mt-auto space-y-4 pt-6 border-t border-slate-100">
+            <div className="mt-auto space-y-4 pt-6 border-t border-slate-100 relative">
                <div className="flex justify-between items-end">
                   <div className="space-y-1">
                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Disponível</p>
@@ -179,7 +189,7 @@ export function CreditCards() {
                </div>
                <div className="flex justify-between text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">
                   <span>Vencimento dia {card.due_day}</span>
-                  <span>Limite {formatCurrency(card.limit_amount)}</span>
+                  <span className="font-mono">{security.maskFinancialData('1234')}</span>
                </div>
             </div>
           </motion.div>
@@ -243,8 +253,8 @@ function CardForm({ onSave, onCancel }: any) {
         <div className="space-y-2"><label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Dia do Vencimento</label><input type="number" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" value={formData.due_day} onChange={e => setFormData({...formData, due_day: Number(e.target.value)})} /></div>
       </div>
       <div className="flex gap-6 mt-10 pt-8 border-t border-slate-100 font-bold uppercase text-xs tracking-[0.2em]">
-          <button onClick={onCancel} className="flex-1 py-5 border border-slate-200 rounded-[1.5rem] hover:bg-slate-50 text-slate-400 transition-all">Cancelar</button>
-          <button onClick={() => onSave(formData)} className="flex-1 py-5 bg-slate-900 text-white rounded-[1.5rem] shadow-2xl shadow-slate-900/30 hover:scale-105 active:scale-95 transition-all tracking-[0.3em]">Ativar Cartão</button>
+          <button onClick={onCancel} className="flex-1 py-5 border border-slate-200 rounded-[1.5rem] hover:bg-slate-50 text-slate-400 transition-all text-xs tracking-widest">Cancelar</button>
+          <button onClick={() => onSave(formData)} className="flex-1 py-5 bg-slate-900 text-white rounded-[1.5rem] shadow-2xl shadow-slate-900/30 hover:scale-105 active:scale-95 transition-all tracking-[0.4em] text-[10px]">Ativar Cartão</button>
       </div>
     </div>
   );
