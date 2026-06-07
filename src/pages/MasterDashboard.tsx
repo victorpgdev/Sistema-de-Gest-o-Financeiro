@@ -18,6 +18,7 @@ export function MasterDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showLinkModal, setShowLinkModal] = useState<any>(null);
+  const [showEditTenantModal, setShowEditTenantModal] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
@@ -48,6 +49,30 @@ export function MasterDashboard() {
       return () => clearTimeout(timer);
     }
   }, [notification]);
+
+  const handleUpdateTenant = async (form: any) => {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('tenants')
+        .update({
+          name: form.name,
+          plan: form.plan,
+          status: form.status
+        })
+        .eq('id', showEditTenantModal.id);
+
+      if (error) throw error;
+
+      setNotification({ type: 'success', message: 'Empresa atualizada com sucesso!' });
+      setShowEditTenantModal(null);
+      fetchData();
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleLinkTenant = async (profileId: string, tenantId: string) => {
     setIsLoading(true);
@@ -107,6 +132,7 @@ export function MasterDashboard() {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto px-4 pb-20 relative">
+      {/* Notificações Topo */}
       <AnimatePresence>
         {notification && (
           <motion.div 
@@ -128,103 +154,125 @@ export function MasterDashboard() {
             <Shield className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Painel Master</h1>
-            <p className="text-sm text-muted-foreground font-medium">Controle de acessos e licenciamento global.</p>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-800">Painel Master</h1>
+            <p className="text-sm text-slate-500 font-medium tracking-tight">O motor central do PG Financial SaaS.</p>
           </div>
         </div>
-        <div className="flex bg-muted/40 p-1 rounded-2xl border">
-          <button onClick={() => setActiveTab('tenants')} className={cn("px-6 py-2 rounded-xl text-xs font-bold uppercase transition-all", activeTab === 'tenants' ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground")}>EMPRESAS</button>
-          <button onClick={() => setActiveTab('profiles')} className={cn("px-6 py-2 rounded-xl text-xs font-bold uppercase transition-all", activeTab === 'profiles' ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground")}>USUÁRIOS</button>
+        <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+          <button onClick={() => setActiveTab('tenants')} className={cn("px-6 py-2 rounded-xl text-xs font-black uppercase transition-all tracking-wider", activeTab === 'tenants' ? "bg-white shadow-sm text-primary" : "text-slate-500 hover:text-slate-800")}>EMPRESAS</button>
+          <button onClick={() => setActiveTab('profiles')} className={cn("px-6 py-2 rounded-xl text-xs font-black uppercase transition-all tracking-wider", activeTab === 'profiles' ? "bg-white shadow-sm text-primary" : "text-slate-500 hover:text-slate-800")}>USUÁRIOS</button>
         </div>
       </div>
 
       <div className="flex gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <div className="relative flex-1 group">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
           <input 
-            placeholder={activeTab === 'tenants' ? "Buscar empresa..." : "Buscar usuário..."}
+            placeholder={activeTab === 'tenants' ? "Pesquisar por nome da empresa..." : "Pesquisar por nome ou e-mail..."}
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            className="w-full pl-11 pr-4 py-3 bg-card border rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-primary/20 transition-all font-bold"
+            className="w-full pl-11 pr-4 py-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all text-slate-700"
           />
         </div>
         <button 
           onClick={() => setShowModal(true)}
-          className="px-6 py-3 bg-primary text-white rounded-2xl font-bold font-primary shadow-xl shadow-primary/20 flex items-center gap-2 hover:scale-[1.02] transition-all"
+          className="px-8 py-4 bg-primary text-white rounded-2xl font-black shadow-xl shadow-primary/20 flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-all text-sm uppercase tracking-wider"
         >
-          <Plus className="w-5 h-5" /> Novo Cliente
+          <Plus className="w-5 h-5 flex-shrink-0" /> Novo Cliente
         </button>
       </div>
 
-      <div className="bg-card border rounded-[2.5rem] shadow-sm overflow-hidden">
+      <div className="bg-white border border-slate-200 rounded-[2.5rem] shadow-sm overflow-hidden">
         {isLoading ? (
-          <div className="py-20 text-center"><Loader2 className="w-10 h-10 animate-spin mx-auto text-primary opacity-20" /></div>
+          <div className="py-24 text-center"><Loader2 className="w-12 h-12 animate-spin mx-auto text-primary opacity-20" /></div>
         ) : (
           <div className="overflow-x-auto">
             {activeTab === 'tenants' ? (
               <table className="w-full text-left">
-                <thead className="bg-muted/30 border-b text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-none">
+                <thead className="bg-slate-50/50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
                   <tr>
-                    <th className="px-8 py-5">Organização</th>
-                    <th className="px-6 py-5">Status</th>
-                    <th className="px-6 py-5">Plano</th>
-                    <th className="px-6 py-5">ID Único (Chave)</th>
-                    <th className="px-8 py-5 text-right">Ações</th>
+                    <th className="px-10 py-6">Organização</th>
+                    <th className="px-8 py-6">Status</th>
+                    <th className="px-8 py-6">Plano</th>
+                    <th className="px-8 py-6">Chave Única</th>
+                    <th className="px-10 py-6 text-right">Controle</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody className="divide-y divide-slate-100">
                   {filteredTenants.map(t => (
-                    <tr key={t.id} className="hover:bg-muted/10 transition-colors">
-                      <td className="px-8 py-5 font-bold">{t.name}</td>
-                      <td className="px-6 py-5">
-                        <span className={cn("px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest", t.status === 'active' ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600")}>{t.status}</span>
+                    <tr key={t.id} className="hover:bg-slate-50/50 transition-colors group">
+                      <td className="px-10 py-6 font-bold text-slate-700">{t.name}</td>
+                      <td className="px-8 py-6">
+                        <span className={cn(
+                          "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest", 
+                          t.status === 'active' ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-rose-50 text-rose-600 border border-rose-100"
+                        )}>{t.status}</span>
                       </td>
-                      <td className="px-6 py-5 font-bold text-xs">{t.plan}</td>
-                      <td className="px-6 py-5 text-xs font-mono opacity-40">{t.id}</td>
-                      <td className="px-8 py-5 text-right flex justify-end gap-2">
-                           <button className="p-2 hover:bg-muted rounded-lg text-muted-foreground"><Edit2 className="w-4 h-4" /></button>
-                           <button className="p-2 hover:bg-rose-50 text-rose-500 rounded-lg"><Ban className="w-4 h-4" /></button>
+                      <td className="px-8 py-6 font-bold text-xs text-slate-600">{t.plan}</td>
+                      <td className="px-8 py-6 text-[10px] font-mono text-slate-400 opacity-60">{t.id}</td>
+                      <td className="px-10 py-6 text-right">
+                        <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                           <button 
+                            onClick={() => setShowEditTenantModal(t)}
+                            className="p-2.5 hover:bg-slate-100 text-slate-500 hover:text-primary rounded-xl transition-all border border-transparent hover:border-slate-200"
+                           >
+                            <Edit2 className="w-4 h-4" />
+                           </button>
+                           <button className="p-2.5 hover:bg-rose-50 text-slate-500 hover:text-rose-500 rounded-xl transition-all border border-transparent hover:border-rose-100">
+                            <Ban className="w-4 h-4" />
+                           </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
+                  {filteredTenants.length === 0 && (
+                    <tr><td colSpan={5} className="py-20 text-center text-slate-400 font-bold">Nenhuma empresa encontrada com esse termo.</td></tr>
+                  )}
                 </tbody>
               </table>
             ) : (
               <table className="w-full text-left">
-                <thead className="bg-muted/30 border-b text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                <thead className="bg-slate-50/50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
                   <tr>
-                    <th className="px-8 py-5">Nome / E-mail</th>
-                    <th className="px-6 py-5">Empresa</th>
-                    <th className="px-6 py-5">Cargo</th>
-                    <th className="px-6 py-5">Status</th>
-                    <th className="px-8 py-5 text-right">Ações</th>
+                    <th className="px-10 py-6">Responsável / Acesso</th>
+                    <th className="px-8 py-6">Empresa Vinculada</th>
+                    <th className="px-8 py-6 text-center">Nível</th>
+                    <th className="px-8 py-6 text-center">Cadastro</th>
+                    <th className="px-10 py-6 text-right">Ações</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody className="divide-y divide-slate-100">
                   {filteredProfiles.map(p => (
-                    <tr key={p.id} className="hover:bg-muted/10 transition-colors group">
-                      <td className="px-8 py-5">
-                        <p className="font-bold">{p.name}</p>
-                        <p className="text-xs text-muted-foreground">{p.email}</p>
+                    <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
+                      <td className="px-10 py-6">
+                        <p className="font-bold text-slate-700">{p.name}</p>
+                        <p className="text-xs text-slate-400 font-medium">{p.email}</p>
                       </td>
-                      <td className="px-6 py-5">
+                      <td className="px-8 py-6">
                         <button 
                           onClick={() => setShowLinkModal(p)}
                           className={cn(
-                            "flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 transition-all",
-                            p.tenant_name ? "border-primary/20 text-primary hover:bg-primary/5" : "border-rose-500/30 text-rose-500 hover:bg-rose-500/5 bg-rose-500/5 animate-pulse"
+                            "flex items-center gap-3 px-4 py-2 rounded-xl border transition-all text-[10px] font-black uppercase tracking-widest",
+                            p.tenant_name 
+                              ? "bg-slate-50 border-slate-200 text-slate-600 hover:bg-white hover:border-primary hover:text-primary" 
+                              : "bg-rose-50 border-rose-200 text-rose-500 hover:bg-rose-100 animate-pulse"
                           )}
                         >
-                          {p.tenant_name ? <Building2 className="w-3 h-3" /> : <Link className="w-3 h-3" />}
-                          <span className="font-bold text-[10px] uppercase">{p.tenant_name || 'Vincular Empresa'}</span>
+                          {p.tenant_name ? <Building2 className="w-3.5 h-3.5" /> : <Link className="w-3.5 h-3.5" />}
+                          {p.tenant_name || 'Vincular Agora'}
                         </button>
                       </td>
-                      <td className="px-6 py-5 font-bold text-xs uppercase opacity-60 tracking-wider">{p.role}</td>
-                      <td className="px-6 py-5">
-                        <span className={cn("px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest", p.status === 'active' ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600")}>{p.status || 'active'}</span>
+                      <td className="px-8 py-6 text-center font-bold text-[10px] text-slate-500 uppercase tracking-widest">{p.role}</td>
+                      <td className="px-8 py-6 text-center">
+                        <span className={cn(
+                          "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border", 
+                          p.status === 'active' ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-rose-50 text-rose-600 border-rose-100"
+                        )}>{p.status || 'active'}</span>
                       </td>
-                      <td className="px-8 py-5 text-right">
-                         <button className="p-2 hover:bg-rose-50 text-rose-500 rounded-lg"><Ban className="w-4 h-4" /></button>
+                      <td className="px-10 py-6 text-right">
+                         <button className="p-2.5 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-xl transition-all opacity-0 group-hover:opacity-100">
+                            <Ban className="w-4 h-4" />
+                         </button>
                       </td>
                     </tr>
                   ))}
@@ -236,28 +284,49 @@ export function MasterDashboard() {
       </div>
 
       <AnimatePresence>
-        {showLinkModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-background/80 backdrop-blur-xl">
-            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="bg-card border rounded-[2rem] p-10 w-full max-w-lg shadow-2xl relative">
-              <div className="flex justify-between items-center mb-8">
+        {/* Modal Editar Empresa */}
+        {showEditTenantModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-md">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white border border-slate-200 rounded-[2.5rem] p-10 w-full max-w-lg shadow-2xl relative">
+              <div className="flex justify-between items-center mb-8 pb-6 border-b border-slate-100">
                  <div>
-                    <h2 className="text-xl font-bold">Vincular Empresa</h2>
-                    <p className="text-sm text-muted-foreground font-medium">{showLinkModal.email}</p>
+                    <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">Editar Empresa</h2>
+                    <p className="text-xs text-slate-400 font-bold uppercase tracking-widest opacity-60">Alterar dados da licença ativa</p>
                  </div>
-                 <button onClick={() => setShowLinkModal(null)} className="p-2 bg-muted rounded-xl"><X className="w-5 h-5" /></button>
+                 <button onClick={() => setShowEditTenantModal(null)} className="p-3 bg-slate-100 text-slate-500 rounded-2xl hover:bg-rose-50 hover:text-rose-500 transition-all"><X className="w-6 h-6" /></button>
+              </div>
+
+              <TenantEditForm 
+                tenant={showEditTenantModal} 
+                onSave={handleUpdateTenant} 
+                onCancel={() => setShowEditTenantModal(null)} 
+              />
+            </motion.div>
+          </div>
+        )}
+
+        {showLinkModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-md">
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="bg-white border border-slate-200 rounded-[2.5rem] p-10 w-full max-w-lg shadow-2xl relative">
+              <div className="flex justify-between items-center mb-8 pb-6 border-b border-slate-100">
+                 <div>
+                    <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">Vincular Empresa</h2>
+                    <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{showLinkModal.email}</p>
+                 </div>
+                 <button onClick={() => setShowLinkModal(null)} className="p-3 bg-slate-100 text-slate-500 rounded-2xl transition-all"><X className="w-5 h-5" /></button>
               </div>
               
               <div className="space-y-4">
-                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Selecione a Organização</label>
-                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Escolha a Organização</label>
+                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                   {showLinkModal.tenant_id && (
                     <button
                       onClick={() => handleLinkTenant(showLinkModal.id, null as any)}
-                      className="w-full flex items-center justify-between p-4 bg-rose-500/5 hover:bg-rose-500/10 border-2 border-dashed border-rose-500/30 rounded-2xl transition-all group mb-4"
+                      className="w-full flex items-center justify-between p-5 bg-rose-50/50 hover:bg-rose-50 border-2 border-dashed border-rose-200 rounded-[1.5rem] transition-all group"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-4">
                          <Ban className="w-5 h-5 text-rose-500" />
-                         <span className="font-bold text-sm text-rose-600">Desvincular desta Empresa</span>
+                         <span className="font-bold text-sm text-rose-600">Desvincular Usuário</span>
                       </div>
                     </button>
                   )}
@@ -266,13 +335,18 @@ export function MasterDashboard() {
                     <button
                       key={tenant.id}
                       onClick={() => handleLinkTenant(showLinkModal.id, tenant.id)}
-                      className="w-full flex items-center justify-between p-4 bg-muted/40 hover:bg-primary/10 border-2 border-transparent hover:border-primary/30 rounded-2xl transition-all group"
+                      className={cn(
+                        "w-full flex items-center justify-between p-5 rounded-[1.5rem] transition-all border-2",
+                        showLinkModal.tenant_id === tenant.id 
+                          ? "bg-primary border-primary text-white shadow-xl shadow-primary/20" 
+                          : "bg-slate-50/50 border-transparent hover:border-slate-200 hover:bg-white text-slate-600"
+                      )}
                     >
-                      <div className="flex items-center gap-3">
-                         <Building2 className="w-5 h-5 text-muted-foreground group-hover:text-primary" />
+                      <div className="flex items-center gap-4">
+                         <Building2 className={cn("w-5 h-5", showLinkModal.tenant_id === tenant.id ? "text-white" : "text-slate-400")} />
                          <span className="font-bold text-sm">{tenant.name}</span>
                       </div>
-                      {showLinkModal.tenant_id === tenant.id && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
+                      {showLinkModal.tenant_id === tenant.id && <CheckCircle2 className="w-5 h-5 text-white" />}
                     </button>
                   ))}
                 </div>
@@ -282,11 +356,14 @@ export function MasterDashboard() {
         )}
 
         {showModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-background/80 backdrop-blur-xl">
-             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="bg-card border rounded-[3rem] p-10 w-full max-w-xl shadow-2xl relative">
-                <div className="flex justify-between items-center mb-8">
-                   <h2 className="text-2xl font-bold tracking-tight">Novo Cliente</h2>
-                   <button onClick={() => setShowModal(false)} className="p-3 bg-muted rounded-2xl hover:rotate-90 transition-all"><X className="w-6 h-6" /></button>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-md">
+             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white border border-slate-200 rounded-[3rem] p-12 w-full max-w-xl shadow-2xl relative">
+                <div className="flex justify-between items-center mb-10 pb-6 border-b border-slate-100">
+                   <div>
+                    <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Novo Cliente</h2>
+                    <p className="text-xs text-slate-400 font-bold uppercase tracking-widest opacity-60">Ativar nova licença no sistema</p>
+                   </div>
+                   <button onClick={() => setShowModal(false)} className="p-4 bg-slate-100 rounded-2xl hover:rotate-90 transition-all"><X className="w-6 h-6" /></button>
                 </div>
                 <ClientForm onSave={handleCreateClient} onCancel={() => setShowModal(false)} />
              </motion.div>
@@ -297,27 +374,91 @@ export function MasterDashboard() {
   );
 }
 
+function TenantEditForm({ tenant, onSave, onCancel }: any) {
+  const [form, setForm] = useState({
+    name: tenant.name || '',
+    plan: tenant.plan || 'Basic',
+    status: tenant.status || 'active'
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Nome da Organização</label>
+        <input 
+          className="w-full p-4 bg-slate-50 border border-slate-200 focus:border-primary focus:ring-4 focus:ring-primary/5 rounded-2xl outline-none font-bold transition-all" 
+          value={form.name} 
+          onChange={e => setForm({...form, name: e.target.value})} 
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Plano Atual</label>
+          <select 
+            className="w-full p-4 bg-slate-50 border border-slate-200 focus:border-primary rounded-2xl outline-none font-bold cursor-pointer"
+            value={form.plan}
+            onChange={e => setForm({...form, plan: e.target.value})}
+          >
+            <option value="Basic">Basic</option>
+            <option value="Pro">Pro</option>
+            <option value="Enterprise">Enterprise</option>
+          </select>
+        </div>
+        <div className="space-y-2">
+          <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Status Licença</label>
+          <select 
+            className={cn(
+              "w-full p-4 border rounded-2xl outline-none font-bold cursor-pointer transition-all",
+              form.status === 'active' ? "bg-emerald-50 border-emerald-200 text-emerald-600" : "bg-rose-50 border-rose-200 text-rose-600"
+            )}
+            value={form.status}
+            onChange={e => setForm({...form, status: e.target.value})}
+          >
+            <option value="active">ATIVA</option>
+            <option value="inactive">INATIVA</option>
+            <option value="banned">BLOQUEADA</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="mt-8 pt-8 border-t border-slate-100 flex gap-4">
+         <button onClick={onCancel} className="flex-1 py-4 border border-slate-200 rounded-[1.5rem] font-bold text-slate-400 hover:bg-slate-50 transition-all uppercase text-xs tracking-widest">Descartar</button>
+         <button 
+          onClick={() => onSave(form)} 
+          className="flex-1 py-4 bg-primary text-white rounded-[1.5rem] font-black shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all uppercase text-xs tracking-[0.2em]"
+         >
+          Salvar Alterações
+         </button>
+      </div>
+    </div>
+  );
+}
+
 function ClientForm({ onSave, onCancel }: any) {
   const [form, setForm] = useState({ clientName: '', email: '', companyName: '', plan: 'Basic' });
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="space-y-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="space-y-2">
-          <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Responsável</label>
-          <input className="w-full p-4 bg-muted/40 border rounded-2xl outline-none font-bold" placeholder="Nome" value={form.clientName} onChange={e => setForm({...form, clientName: e.target.value})} />
+          <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Responsável</label>
+          <input className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold transition-all focus:border-primary" placeholder="Nome Completo" value={form.clientName} onChange={e => setForm({...form, clientName: e.target.value})} />
         </div>
         <div className="space-y-2">
-          <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">E-mail</label>
-          <input className="w-full p-4 bg-muted/40 border rounded-2xl outline-none font-bold" placeholder="email@exemplo.com" value={form.email} onChange={e => setForm({...form, email: e.target.value})} />
+          <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">E-mail Master</label>
+          <input className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold transition-all focus:border-primary" placeholder="email@dominio.com" value={form.email} onChange={e => setForm({...form, email: e.target.value})} />
         </div>
       </div>
       <div className="space-y-2">
-        <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Empresa</label>
-        <input className="w-full p-4 bg-muted/40 border rounded-2xl outline-none font-bold" placeholder="Nome da Empresa" value={form.companyName} onChange={e => setForm({...form, companyName: e.target.value})} />
+        <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Nome da Empresa (Cria Nova Organização)</label>
+        <div className="relative">
+          <Building2 className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+          <input className="w-full pl-14 pr-5 py-5 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold transition-all focus:border-primary" placeholder="Ex: Minha Empresa S.A." value={form.companyName} onChange={e => setForm({...form, companyName: e.target.value})} />
+        </div>
       </div>
-      <div className="flex gap-4 mt-8 pt-6 border-t font-semibold">
-          <button onClick={onCancel} className="flex-1 py-4 border rounded-2xl hover:bg-muted">CANCELAR</button>
-          <button onClick={() => onSave(form)} className="flex-1 py-4 bg-primary text-white rounded-2xl shadow-xl shadow-primary/20 hover:scale-105 transition-all">ATIVAR LICENÇA</button>
+      <div className="flex gap-6 mt-10 pt-8 border-t border-slate-100">
+          <button onClick={onCancel} className="flex-1 py-5 border border-slate-200 rounded-[1.5rem] font-bold text-slate-400 hover:bg-slate-50 transition-all uppercase text-xs tracking-[0.2em]">Cancelar</button>
+          <button onClick={() => onSave(form)} className="flex-1 py-5 bg-primary text-white rounded-[1.5rem] font-black shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-95 transition-all uppercase text-xs tracking-[0.2em]">Criar e Ativar</button>
       </div>
     </div>
   );
