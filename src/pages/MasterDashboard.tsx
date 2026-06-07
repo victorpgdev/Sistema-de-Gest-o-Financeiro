@@ -99,7 +99,14 @@ export function MasterDashboard() {
     try {
       const { data: tenant, error: tError } = await supabase
         .from('tenants')
-        .insert([{ name: form.companyName, plan: form.plan, status: 'active' }])
+        .insert([{ 
+          name: form.companyName, 
+          plan: form.plan, 
+          status: 'active',
+          document_number: form.document,
+          entity_type: form.type,
+          business_sector: form.type === 'PJ' ? form.sector : 'Pessoal'
+        }])
         .select()
         .single();
 
@@ -486,29 +493,70 @@ function TenantEditForm({ tenant, onSave, onCancel }: any) {
 }
 
 function ClientForm({ onSave, onCancel }: any) {
-  const [form, setForm] = useState({ clientName: '', email: '', companyName: '', plan: 'Basic' });
+  const [form, setForm] = useState({ 
+    clientName: '', 
+    email: '', 
+    companyName: '', 
+    plan: 'Basic', 
+    type: 'PJ', 
+    document: '', 
+    sector: 'Serviços' 
+  });
+
+  const SECTORS = [
+    'Serviços', 'Comércio', 'Indústria', 'Tecnologia', 
+    'Saúde', 'Educação', 'Alimentação', 'Jurídico', 
+    'Imobiliário', 'Outros'
+  ];
+
   return (
     <div className="space-y-8">
+      <div className="flex bg-slate-100 p-1.5 rounded-2xl border mb-2">
+          <button onClick={() => setForm({...form, type: 'PJ'})} className={cn("flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all", form.type === 'PJ' ? "bg-white shadow-sm text-primary" : "text-slate-500")}>Empresa (PJ)</button>
+          <button onClick={() => setForm({...form, type: 'PF'})} className={cn("flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all", form.type === 'PF' ? "bg-white shadow-sm text-primary" : "text-slate-500")}>Pessoal (PF)</button>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="space-y-2">
           <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Responsável</label>
-          <input className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold transition-all focus:border-primary" placeholder="Nome Completo" value={form.clientName} onChange={e => setForm({...form, clientName: e.target.value})} />
+          <input className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" placeholder="Nome do Cliente" value={form.clientName} onChange={e => setForm({...form, clientName: e.target.value})} />
         </div>
         <div className="space-y-2">
-          <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">E-mail Master</label>
-          <input className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold transition-all focus:border-primary" placeholder="email@dominio.com" value={form.email} onChange={e => setForm({...form, email: e.target.value})} />
+          <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">E-mail de Acesso</label>
+          <input className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" placeholder="exemplo@email.com" value={form.email} onChange={e => setForm({...form, email: e.target.value})} />
         </div>
       </div>
-      <div className="space-y-2">
-        <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Nome da Empresa (Cria Nova Organização)</label>
-        <div className="relative">
-          <Building2 className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-          <input className="w-full pl-14 pr-5 py-5 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold transition-all focus:border-primary" placeholder="Ex: Minha Empresa S.A." value={form.companyName} onChange={e => setForm({...form, companyName: e.target.value})} />
-        </div>
+
+      <div className="space-y-8 p-8 bg-slate-900 rounded-[2.5rem] text-white transition-all shadow-2xl shadow-indigo-500/5">
+          <div className="space-y-2 text-center md:text-left">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">{form.type === 'PJ' ? 'Identificação da Empresa' : 'Identificação da Conta'}</label>
+            <input className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl outline-none font-bold text-white focus:border-primary transition-all text-center md:text-left" placeholder={form.type === 'PJ' ? "Ex: Advocacia do Luiz Daniel" : "Ex: Minhas Finanças Pessoais"} value={form.companyName} onChange={e => setForm({...form, companyName: e.target.value})} />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+               <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">{form.type === 'PJ' ? 'CNPJ' : 'CPF'}</label>
+               <input className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl outline-none font-bold text-white tracking-widest" placeholder={form.type === 'PJ' ? "00.000.000/0000-00" : "000.000.000-00"} value={form.document} onChange={e => setForm({...form, document: e.target.value})} />
+            </div>
+            {form.type === 'PJ' && (
+              <div className="space-y-2">
+                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">Ramo de Atividade</label>
+                 <select className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl outline-none font-bold text-white cursor-pointer" value={form.sector} onChange={e => setForm({...form, sector: e.target.value})}>
+                    {SECTORS.map(s => <option key={s} value={s} className="bg-slate-800">{s}</option>)}
+                 </select>
+              </div>
+            )}
+            {form.type === 'PF' && (
+              <div className="flex items-center justify-center p-5 bg-primary/10 border border-primary/20 rounded-2xl">
+                 <span className="text-[10px] font-black text-primary uppercase tracking-widest">Categoria: Financeiro Pessoal</span>
+              </div>
+            )}
+          </div>
       </div>
-      <div className="flex gap-6 mt-10 pt-8 border-t border-slate-100">
+
+      <div className="flex gap-6 mt-10 pt-8 border-t border-slate-100 flex-col md:flex-row">
           <button onClick={onCancel} className="flex-1 py-5 border border-slate-200 rounded-[1.5rem] font-bold text-slate-400 hover:bg-slate-50 transition-all uppercase text-xs tracking-[0.2em]">Cancelar</button>
-          <button onClick={() => onSave(form)} className="flex-1 py-5 bg-primary text-white rounded-[1.5rem] font-black shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-95 transition-all uppercase text-xs tracking-[0.2em]">Criar e Ativar</button>
+          <button onClick={() => onSave(form)} className="flex-1 py-5 bg-primary text-white rounded-[1.5rem] font-black shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-95 transition-all uppercase text-xs tracking-[0.2em]">Ativar Licença</button>
       </div>
     </div>
   );
