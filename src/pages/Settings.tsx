@@ -13,7 +13,60 @@ export function Settings() {
   const { user, initialize } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'system'>('profile');
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.tenant_id) return;
+
+    // SEGURANÇA 1: Tipo e Tamanho
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      setNotification({ type: 'error', message: 'Apenas PNG, JPG ou WEBP são permitidos.' });
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setNotification({ type: 'error', message: 'Tamanho máximo de 2MB excedido.' });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      // SEGURANÇA 2 (ANTI-HACKER): Re-renderizar via Canvas (Sanitização)
+      const bitmap = await createImageBitmap(file);
+      const canvas = document.createElement('canvas');
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(bitmap, 0, 0);
+      
+      const blob = await new Promise<Blob>((resolve) => 
+        canvas.toBlob(b => resolve(b!), 'image/webp', 0.8)
+      );
+      
+      const fileName = `logos/${user.tenant_id}-${Date.now()}.webp`;
+      const { error: uploadError } = await supabase.storage
+        .from('logos')
+        .upload(fileName, blob);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage.from('logos').getPublicUrl(fileName);
+
+      const { error: updateError } = await supabase
+        .from('tenants')
+        .update({ logo_url: publicUrl })
+        .eq('id', user.tenant_id);
+
+      if (updateError) throw updateError;
+      
+      setNotification({ type: 'success', message: 'Logotipo renovado e higienizado!' });
+    } catch (err: any) {
+      setNotification({ type: 'error', message: 'Ameaça detectada ou erro no processamento.' });
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   // Estados dos formulários
   const [profileForm, setProfileForm] = useState({
@@ -163,13 +216,65 @@ export function Settings() {
             )}
 
             {activeTab === 'system' && (
-              <div className="space-y-8 py-10 text-center flex flex-col items-center">
-                 <div className="w-20 h-20 bg-blue-500/10 text-blue-600 rounded-3xl flex items-center justify-center">
-                    <Building2 className="w-10 h-10" />
-                 </div>
-                 <h2 className="text-2xl font-bold">Dados da Empresa</h2>
-                 <p className="text-muted-foreground max-w-sm mb-6">Personalize os dados da sua empresa e o logotipo que aparece nos relatórios.</p>
-                 <button className="px-8 py-3 border-2 border-primary/20 text-primary rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-primary/5 transition-all">Configurar Organização</button>
+              <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="flex items-center gap-4 mb-2">
+                  <div className="w-12 h-12 bg-blue-500/10 text-blue-600 rounded-2xl flex items-center justify-center">
+                    <Building2 className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold">Identidade Visual</h2>
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-widest">Personalize a cara da sua plataforma</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col md:flex-row items-center gap-10 p-8 border border-dashed rounded-[2rem] bg-muted/20">
+                  <div className="w-40 h-40 bg-card border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center justify-center relative overflow-hidden group shadow-inner">
+                    {isUploading ? (
+                      <div className="flex flex-col items-center gap-2">
+                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                        <span className="text-[10px] font-black text-primary animate-pulse">HIGIENIZANDO...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <Building2 className="w-10 h-10 text-slate-300" />
+                        <p className="text-[10px] font-black text-slate-400 mt-2 uppercase">Subir Logo</p>
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={handleLogoUpload}
+                          className="absolute inset-0 opacity-0 cursor-pointer" 
+                        />
+                      </>
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-5">
+                    <div className="space-y-1">
+                      <h3 className="font-bold text-slate-700">Logo da Empresa</h3>
+                      <p className="text-sm text-muted-foreground font-medium italic leading-relaxed">
+                        Recomendamos o formato PNG transparente. O sistema removerá metadados e scripts ocultos automaticamente para sua segurança.
+                      </p>
+                    </div>
+                    <div className="p-5 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-start gap-3">
+                      <Shield className="w-5 h-5 text-emerald-600 mt-0.5" />
+                      <div className="space-y-1">
+                         <span className="text-[10px] font-black uppercase text-emerald-700 tracking-widest">Proteção PG Secure Ativa</span>
+                         <p className="text-xs text-emerald-600 font-medium leading-relaxed opacity-80">
+                           Cada pixel é reprocessado para garantir que nenhum vírus ou script seja injetado através da imagem.
+                         </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-4">
+                   <h3 className="text-sm font-black text-muted-foreground uppercase tracking-widest ml-1">Cores da Interface</h3>
+                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {['#3b82f6', '#10b981', '#f59e0b', '#ef4444'].map(color => (
+                        <button key={color} className="h-12 rounded-xl border-2 border-background shadow-sm hover:scale-105 transition-all" style={{ backgroundColor: color }} />
+                      ))}
+                      <button className="h-12 rounded-xl border-2 border-dashed flex items-center justify-center text-xs font-bold text-muted-foreground hover:bg-muted transition-all">Custom</button>
+                   </div>
+                </div>
               </div>
             )}
 

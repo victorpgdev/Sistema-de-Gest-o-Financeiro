@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react';
 import { 
   Plus, Search, Wallet, MoreVertical, Trash2, 
   CheckCircle2, X, Loader2, Landmark, AlertCircle,
-  Building2, Globe
+  Building2, Globe, Shield
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency, cn } from '@/lib/utils';
 import { useAuthStore } from '@/store';
-
 import { GLOBAL_BANKS } from '@/lib/banks';
+import { checkPlanLimit, logAuditAction, PLAN_LIMITS } from '@/lib/limits';
 
 interface BankAccount {
   id: string;
@@ -21,7 +21,7 @@ interface BankAccount {
 }
 
 export function BankAccounts() {
-  const { user } = useAuthStore();
+  const { user, tenant } = useAuthStore();
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -32,12 +32,9 @@ export function BankAccounts() {
     setIsLoading(true);
     try {
       const query = supabase.from('bank_accounts').select('*');
-      
-      // Se não for MASTER (ou se o Master quiser ver apenas o dele), filtra por tenant_id
       if (user?.tenant_id) {
         query.eq('tenant_id', user.tenant_id);
       }
-
       const { data, error } = await query.order('bank_name');
       if (!error) setAccounts(data || []);
     } finally {
@@ -47,7 +44,10 @@ export function BankAccounts() {
 
   useEffect(() => { 
     if (user) fetchAccounts(); 
-// ... (rest of useEffect)
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 3000);
+      return () => clearTimeout(timer);
+    }
   }, [user, notification]);
 
   const handleSave = async (formData: any) => {
@@ -55,6 +55,20 @@ export function BankAccounts() {
       setNotification({ type: 'error', message: 'Erro: Usuário sem empresa vinculada.' });
       return;
     }
+
+    // VERIFICAÇÃO DE LIMITE DE PLANO
+    const userPlan = tenant?.plan || 'Basic';
+    const canAdd = await checkPlanLimit(user.tenant_id, userPlan, 'bankAccounts');
+    
+    if (!canAdd) {
+      const limit = PLAN_LIMITS[userPlan as keyof typeof PLAN_LIMITS]?.bankAccounts;
+      setNotification({ 
+        type: 'error', 
+        message: `Limite de Plano: O plano ${userPlan} permite apenas ${limit} conta(s). Faça upgrade!` 
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
       const { error } = await supabase.from('bank_accounts').insert([{
@@ -63,20 +77,24 @@ export function BankAccounts() {
       }]);
 
       if (error) {
-        setNotification({ type: 'error', message: `Erro: ${error.message}` });
+        setNotification({ type: 'error', message: `Erro ao salvar: ${error.message}` });
       } else {
-        setNotification({ type: 'success', message: 'Conta bancária cadastrada!' });
+        await logAuditAction(user.tenant_id, user.id, 'CREATE_BANK_ACCOUNT', { bank: formData.bank_name });
+        setNotification({ type: 'success', message: 'Conta cadastrada com sucesso!' });
         fetchAccounts();
         setShowModal(false);
       }
     } catch (err) {
-      setNotification({ type: 'error', message: 'Erro ao conectar ao banco.' });
+      setNotification({ type: 'error', message: 'Erro de conexão com o servidor.' });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from('bank_accounts').delete().eq('id', id);
     if (!error) {
+      await logAuditAction(user?.tenant_id!, user?.id!, 'DELETE_BANK_ACCOUNT', { id });
       setNotification({ type: 'success', message: 'Conta removida.' });
       fetchAccounts();
     }
@@ -89,16 +107,14 @@ export function BankAccounts() {
       <AnimatePresence>
         {notification && (
           <motion.div 
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9 }}
+            initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
             className={cn(
-              "fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border backdrop-blur-md",
-              notification.type === 'success' ? "bg-emerald-500/90 text-white border-emerald-400" : "bg-rose-500/90 text-white border-rose-400"
+              "fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border backdrop-blur-md text-white font-bold text-sm",
+              notification.type === 'success' ? "bg-emerald-500/90 border-emerald-400" : "bg-rose-500/90 border-rose-400"
             )}
           >
             {notification.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-            <span className="font-bold text-sm">{notification.message}</span>
+            {notification.message}
           </motion.div>
         )}
       </AnimatePresence>
@@ -106,11 +122,11 @@ export function BankAccounts() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Contas e Saldos</h1>
-          <p className="text-sm text-muted-foreground font-medium">Gerencie suas instituições bancárias e disponibilidades.</p>
+          <p className="text-sm text-muted-foreground font-medium">Bancos e disponibilidades do seu negócio.</p>
         </div>
         <button 
           onClick={() => setShowModal(true)}
-          className="px-6 py-3 bg-primary text-primary-foreground rounded-2xl font-bold shadow-xl shadow-primary/20 flex items-center gap-2 hover:scale-105 transition-all"
+          className="px-6 py-3 bg-primary text-white rounded-2xl font-bold shadow-xl shadow-primary/20 flex items-center gap-2 hover:scale-105 transition-all"
         >
           <Plus className="w-5 h-5" /> Nova Conta
         </button>
@@ -120,8 +136,8 @@ export function BankAccounts() {
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -mr-32 -mt-32 blur-3xl group-hover:bg-primary/10 transition-colors duration-700" />
         <div className="relative">
           <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-2">Patrimônio Líquido Total</p>
-          <div className="flex items-end gap-3 font-black text-4xl md:text-5xl tracking-tighter">
-            <span className="text-primary opacity-40 text-2xl mb-1">R$</span>
+          <div className="flex items-end gap-3 font-black text-4xl md:text-5xl tracking-tighter text-slate-800">
+            <span className="text-primary opacity-40 text-2xl mb-1 italic">R$</span>
             {formatCurrency(totalBalance).replace('R$', '')}
           </div>
         </div>
@@ -140,31 +156,24 @@ export function BankAccounts() {
           </div>
         ) : accounts.map(acc => (
           <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            key={acc.id} 
+            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} key={acc.id} 
             className="bg-card border rounded-[2rem] p-6 hover:shadow-xl transition-all group relative overflow-hidden"
           >
             <div className="flex items-start justify-between mb-6">
               <div className="w-12 h-12 bg-muted rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
                 <Landmark className="w-6 h-6 text-primary" />
               </div>
-              <button 
-                onClick={() => handleDelete(acc.id)}
-                className="p-2 hover:bg-rose-50 text-rose-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              <button onClick={() => handleDelete(acc.id)} className="p-2 hover:bg-rose-50 text-rose-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="w-4 h-4" /></button>
             </div>
             <div className="space-y-1">
-              <h3 className="font-bold text-lg">{acc.bank_name}</h3>
+              <h3 className="font-bold text-lg text-slate-700">{acc.bank_name}</h3>
               <p className="text-xs font-semibold text-muted-foreground uppercase opacity-60 tracking-wider font-mono">
                 Ag {acc.agency} • CC {acc.account_number}
               </p>
             </div>
             <div className="mt-6 pt-6 border-t flex items-center justify-between">
-               <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{acc.type === 'checking' ? 'Corrente' : 'Poupança'}</span>
-               <span className="font-bold text-lg tabular-nums">{formatCurrency(acc.balance)}</span>
+               <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{acc.type}</span>
+               <span className="font-bold text-lg tabular-nums text-slate-800">{formatCurrency(acc.balance)}</span>
             </div>
           </motion.div>
         ))}
@@ -173,17 +182,11 @@ export function BankAccounts() {
       <AnimatePresence>
         {showModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-background/80 backdrop-blur-xl">
-             <motion.div 
-               initial={{ opacity: 0, scale: 0.9, y: 20 }}
-               animate={{ opacity: 1, scale: 1, y: 0 }}
-               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-               className="bg-card border rounded-[3rem] p-10 w-full max-w-xl shadow-2xl relative"
-             >
+             <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }} className="bg-card border rounded-[3rem] p-10 w-full max-w-xl shadow-2xl relative">
                 <div className="flex justify-between items-center mb-8">
                    <h2 className="text-2xl font-bold tracking-tight">Nova Conta</h2>
                    <button onClick={() => setShowModal(false)} className="p-3 bg-muted rounded-2xl hover:rotate-90 transition-all"><X className="w-6 h-6" /></button>
                 </div>
-
                 <BankForm onSave={handleSave} onCancel={() => setShowModal(false)} />
              </motion.div>
           </div>
@@ -194,15 +197,8 @@ export function BankAccounts() {
 }
 
 function BankForm({ onSave, onCancel }: any) {
-  const [formData, setFormData] = useState({
-    bank_name: '',
-    type: 'checking',
-    balance: 0,
-    agency: '',
-    account_number: ''
-  });
+  const [formData, setFormData] = useState({ bank_name: '', type: 'checking', balance: 0, agency: '', account_number: '' });
   const [bankSuggestions, setBankSuggestions] = useState<any[]>([]);
-
   const handleBankSearch = (val: string) => {
     setFormData({...formData, bank_name: val});
     if (val.length > 1) {
@@ -212,98 +208,33 @@ function BankForm({ onSave, onCancel }: any) {
       setBankSuggestions([]);
     }
   };
-
   return (
     <div className="space-y-6">
       <div className="space-y-2 relative">
-        <label className="text-xs font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
-          <Building2 className="w-3 h-3" /> Instituição Financeira
-        </label>
+        <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Instituição Financeira</label>
         <div className="relative">
-          <input 
-            className="w-full p-4 bg-muted/40 border border-transparent focus:border-primary rounded-2xl outline-none font-bold" 
-            placeholder="Ex: Nubank, Itaú, Chase..." 
-            value={formData.bank_name}
-            onChange={e => handleBankSearch(e.target.value)}
-          />
+          <input className="w-full p-4 bg-muted/40 border border-transparent focus:border-primary rounded-2xl outline-none font-bold" placeholder="Filtre pelo nome do banco..." value={formData.bank_name} onChange={e => handleBankSearch(e.target.value)} />
           <Landmark className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground opacity-20" />
         </div>
-        
         <AnimatePresence>
           {bankSuggestions.length > 0 && (
-            <motion.div 
-               initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-               className="absolute z-10 w-full mt-2 bg-card border rounded-2xl shadow-2xl overflow-hidden max-h-48 overflow-y-auto"
-            >
-              {bankSuggestions.map(b => (
-                <button 
-                  key={b.code} 
-                  onClick={() => { setFormData({...formData, bank_name: b.name}); setBankSuggestions([]); }}
-                  className="w-full px-6 py-3 text-left hover:bg-primary hover:text-white transition-colors text-sm font-bold flex items-center justify-between"
-                >
-                  {b.name} <span className="text-[10px] opacity-60">#{b.code}</span>
-                </button>
-              ))}
+            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute z-10 w-full mt-2 bg-card border rounded-2xl shadow-2xl overflow-hidden max-h-48 overflow-y-auto">
+              {bankSuggestions.map(b => (<button key={b.code} onClick={() => { setFormData({...formData, bank_name: b.name}); setBankSuggestions([]); }} className="w-full px-6 py-3 text-left hover:bg-primary hover:text-white transition-colors text-sm font-bold flex items-center justify-between">{b.name} <span className="text-[10px] opacity-60">#{b.code}</span></button>))}
             </motion.div>
           )}
         </AnimatePresence>
       </div>
-
       <div className="grid grid-cols-2 gap-6">
-        <div className="space-y-2">
-          <label className="text-xs font-black text-muted-foreground uppercase tracking-widest">Tipo de Conta</label>
-          <select 
-            className="w-full p-4 bg-muted/40 border border-transparent focus:border-primary rounded-2xl outline-none font-bold appearance-none cursor-pointer"
-            value={formData.type}
-            onChange={e => setFormData({...formData, type: e.target.value})}
-          >
-            <option value="checking">Conta Corrente</option>
-            <option value="savings">Conta Poupança</option>
-            <option value="investment">Corretora / Investimento</option>
-            <option value="cash">Caixa / Dinheiro</option>
-          </select>
-        </div>
-        <div className="space-y-2">
-          <label className="text-xs font-black text-muted-foreground uppercase tracking-widest">Saldo Atual (R$)</label>
-          <input 
-            type="number"
-            className="w-full p-4 bg-muted/40 border border-transparent focus:border-primary rounded-2xl outline-none font-bold" 
-            placeholder="0,00"
-            value={formData.balance || ''}
-            onChange={e => setFormData({...formData, balance: Number(e.target.value)})}
-          />
-        </div>
+        <div className="space-y-2"><label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Tipo de Conta</label><select className="w-full p-4 bg-muted/40 border rounded-2xl outline-none font-bold cursor-pointer" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})}><option value="checking">Corrente</option><option value="savings">Poupança</option><option value="investment">Investimento</option></select></div>
+        <div className="space-y-2"><label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Saldo (R$)</label><input type="number" className="w-full p-4 bg-muted/40 border rounded-2xl outline-none font-bold" value={formData.balance || ''} onChange={e => setFormData({...formData, balance: Number(e.target.value)})} /></div>
       </div>
-
       <div className="grid grid-cols-2 gap-6">
-        <div className="space-y-2">
-          <label className="text-xs font-black text-muted-foreground uppercase tracking-widest">Agência</label>
-          <input 
-            className="w-full p-4 bg-muted/40 border border-transparent focus:border-primary rounded-2xl outline-none font-bold" 
-            placeholder="0001"
-            value={formData.agency}
-            onChange={e => setFormData({...formData, agency: e.target.value})}
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-xs font-black text-muted-foreground uppercase tracking-widest">Conta (com dígito)</label>
-          <input 
-            className="w-full p-4 bg-muted/40 border border-transparent focus:border-primary rounded-2xl outline-none font-bold" 
-            placeholder="12345-6"
-            value={formData.account_number}
-            onChange={e => setFormData({...formData, account_number: e.target.value})}
-          />
-        </div>
+        <div className="space-y-2"><label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Agência</label><input className="w-full p-4 bg-muted/40 border rounded-2xl outline-none font-bold" placeholder="0001" value={formData.agency} onChange={e => setFormData({...formData, agency: e.target.value})} /></div>
+        <div className="space-y-2"><label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Conta + Dígito</label><input className="w-full p-4 bg-muted/40 border rounded-2xl outline-none font-bold" placeholder="12345-6" value={formData.account_number} onChange={e => setFormData({...formData, account_number: e.target.value})} /></div>
       </div>
-
-      <div className="mt-10 flex gap-4">
-        <button onClick={onCancel} className="flex-1 py-4 border rounded-[1.5rem] font-bold text-muted-foreground hover:bg-muted transition-all">CANCELAR</button>
-        <button 
-          onClick={() => onSave(formData)}
-          className="flex-1 py-4 bg-primary text-white rounded-[1.5rem] font-bold shadow-xl shadow-primary/20 transition-all hover:scale-105"
-        >
-          SALVAR CONTA
-        </button>
+      <div className="flex gap-4 mt-8 pt-6 border-t font-semibold">
+          <button onClick={onCancel} className="flex-1 py-4 border rounded-2xl hover:bg-muted">CANCELAR</button>
+          <button onClick={() => onSave(formData)} className="flex-1 py-4 bg-primary text-white rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all">SALVAR CONTA</button>
       </div>
     </div>
   );

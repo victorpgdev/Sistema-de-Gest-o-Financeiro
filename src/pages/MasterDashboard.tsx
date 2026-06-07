@@ -164,6 +164,43 @@ export function MasterDashboard() {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white border border-slate-200 rounded-[2rem] p-8 shadow-sm relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-emerald-500/10 transition-colors" />
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Faturamento Estimado (MRR)</p>
+          <div className="flex items-end gap-2 font-black text-3xl text-emerald-600 tracking-tighter">
+            <span className="text-emerald-500/40 text-lg mb-1 italic">R$</span>
+            {formatCurrency(
+              tenants.reduce((acc, t) => {
+                if (t.status !== 'active') return acc;
+                const prices: any = { 'Basic': 99.90, 'Pro': 199.90, 'Enterprise': 499.90 };
+                return acc + (prices[t.plan] || 0);
+              }, 0)
+            ).replace('R$', '')}
+          </div>
+          <div className="mt-4 flex items-center gap-2">
+            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-md text-[10px] font-black border border-emerald-100">PLATAFORMA ATIVA</span>
+          </div>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white border border-slate-200 rounded-[2rem] p-8 shadow-sm relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-primary/10 transition-colors" />
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Total de Empresas</p>
+          <div className="font-black text-4xl text-slate-800 tracking-tighter">{tenants.length}</div>
+          <div className="mt-4 flex items-center gap-4 text-[10px] font-bold text-slate-400">
+             <span className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> {tenants.filter(t => t.status === 'active').length} Ativas</span>
+             <span className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-rose-500" /> {tenants.filter(t => t.status !== 'active').length} Inativas</span>
+          </div>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white border border-slate-200 rounded-[2rem] p-8 shadow-sm relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-indigo-500/10 transition-colors" />
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Usuários Totais</p>
+          <div className="font-black text-4xl text-slate-800 tracking-tighter">{profiles.length}</div>
+          <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-indigo-500 italic">Métrica de Engajamento Global</p>
+        </motion.div>
+      </div>
+
       <div className="flex gap-4">
         <div className="relative flex-1 group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
