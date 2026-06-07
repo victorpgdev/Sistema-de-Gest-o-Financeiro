@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
-  Bell, Moon, Sun, Search, User, LogOut, Settings, 
+   Bell, Moon, Sun, Search, User, LogOut, Settings, 
   ChevronDown, CheckCircle2, Info, AlertTriangle, 
   CheckCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '@/lib/supabase';
 import { useAuthStore, useUIStore } from '@/store';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
@@ -23,22 +24,44 @@ export function Header() {
   const { user, logout } = useAuthStore();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
-  const [notifications, setNotifications] = useState<Notification[]>([
-    { id: '1', title: 'Conta a pagar vencendo', desc: 'Fornecedor ABC – R$ 1.200 vence amanhã', time: '5 min', type: 'warning', read: false },
-    { id: '2', title: 'Pagamento recebido', desc: 'Cliente X efetuou pagamento de R$ 4.500', time: '1h', type: 'success', read: false },
-    { id: '3', title: 'Boleto gerado', desc: 'Fatura #1042 foi emitida com sucesso', time: '2h', type: 'info', read: true },
-    { id: '4', title: 'Licença vencendo', desc: 'Sua licença vence em 14 dias', time: '1d', type: 'warning', read: true },
-  ]);
+  const fetchNotifications = async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+    
+    if (!error && data) {
+      setNotifications(data.map(n => ({
+        id: n.id,
+        title: n.title,
+        desc: n.message,
+        time: new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        type: n.type as any,
+        read: n.is_read
+      })));
+    }
+  };
+
+  useEffect(() => {
+    if (user) fetchNotifications();
+  }, [user]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const markAsRead = (id: string) => {
+  const markAsRead = async (id: string) => {
     setNotifications(notifications.map(n => n.id === id ? { ...n, read: true } : n));
+    await supabase.from('notifications').update({ is_read: true }).eq('id', id);
   };
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
     setNotifications(notifications.map(n => ({ ...n, read: true })));
+    if (user) {
+      await supabase.from('notifications').update({ is_read: true }).eq('user_id', user.id);
+    }
   };
 
   const handleSettings = () => {
