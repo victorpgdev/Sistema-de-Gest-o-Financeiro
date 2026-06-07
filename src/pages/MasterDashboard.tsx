@@ -3,7 +3,7 @@ import {
   Building2, Users, Shield, Plus, Search, 
   MoreVertical, Edit2, Trash2, CheckCircle2, 
   X, Loader2, Filter, Globe, Calendar, 
-  CreditCard, Ban, Key, AlertCircle
+  CreditCard, Ban, Key, AlertCircle, Link
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
@@ -17,6 +17,7 @@ export function MasterDashboard() {
   const [profiles, setProfiles] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showLinkModal, setShowLinkModal] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
@@ -34,7 +35,7 @@ export function MasterDashboard() {
       setTenants(tRes.data || []);
       setProfiles(pRes.data.map(p => ({ ...p, tenant_name: p.tenants?.name })) || []);
     } catch (err: any) {
-      setNotification({ type: 'error', message: `Erro de Sincronização: ${err.message || 'Falha no banco'}` });
+      setNotification({ type: 'error', message: `Erro: ${err.message}` });
     } finally {
       setIsLoading(false);
     }
@@ -48,10 +49,29 @@ export function MasterDashboard() {
     }
   }, [notification]);
 
+  const handleLinkTenant = async (profileId: string, tenantId: string) => {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ tenant_id: tenantId })
+        .eq('id', profileId);
+
+      if (error) throw error;
+
+      setNotification({ type: 'success', message: 'Vínculo empresa-usuário atualizado!' });
+      setShowLinkModal(null);
+      fetchData();
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleCreateClient = async (form: any) => {
     setIsLoading(true);
     try {
-      // 1. Criar o Tenant (Chave Única)
       const { data: tenant, error: tError } = await supabase
         .from('tenants')
         .insert([{ name: form.companyName, plan: form.plan, status: 'active' }])
@@ -60,7 +80,6 @@ export function MasterDashboard() {
 
       if (tError) throw tError;
 
-      // 2. Criar o Perfil vinculado ao Tenant via Chave
       const { error: pError } = await supabase
         .from('profiles')
         .insert([{ 
@@ -131,9 +150,9 @@ export function MasterDashboard() {
         </div>
         <button 
           onClick={() => setShowModal(true)}
-          className="px-6 py-3 bg-primary text-white rounded-2xl font-bold shadow-xl shadow-primary/20 flex items-center gap-2 hover:scale-105 active:scale-95 transition-all outline-none"
+          className="px-6 py-3 bg-primary text-white rounded-2xl font-bold font-primary shadow-xl shadow-primary/20 flex items-center gap-2 hover:scale-[1.02] transition-all"
         >
-          <Plus className="w-5 h-5 transition-transform" /> Novo Cliente
+          <Plus className="w-5 h-5" /> Novo Cliente
         </button>
       </div>
 
@@ -155,18 +174,16 @@ export function MasterDashboard() {
                 </thead>
                 <tbody className="divide-y">
                   {filteredTenants.map(t => (
-                    <tr key={t.id} className="hover:bg-muted/10 transition-colors group">
+                    <tr key={t.id} className="hover:bg-muted/10 transition-colors">
                       <td className="px-8 py-5 font-bold">{t.name}</td>
                       <td className="px-6 py-5">
                         <span className={cn("px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest", t.status === 'active' ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600")}>{t.status}</span>
                       </td>
                       <td className="px-6 py-5 font-bold text-xs">{t.plan}</td>
                       <td className="px-6 py-5 text-xs font-mono opacity-40">{t.id}</td>
-                      <td className="px-8 py-5 text-right">
-                        <div className="flex justify-end gap-2">
+                      <td className="px-8 py-5 text-right flex justify-end gap-2">
                            <button className="p-2 hover:bg-muted rounded-lg text-muted-foreground"><Edit2 className="w-4 h-4" /></button>
                            <button className="p-2 hover:bg-rose-50 text-rose-500 rounded-lg"><Ban className="w-4 h-4" /></button>
-                        </div>
                       </td>
                     </tr>
                   ))}
@@ -191,16 +208,22 @@ export function MasterDashboard() {
                         <p className="text-xs text-muted-foreground">{p.email}</p>
                       </td>
                       <td className="px-6 py-5">
-                        <div className="flex items-center gap-2">
-                          <Building2 className="w-3 h-3 text-muted-foreground" />
-                          <span className="font-bold text-xs">{p.tenant_name || 'N/A'}</span>
-                        </div>
+                        <button 
+                          onClick={() => setShowLinkModal(p)}
+                          className={cn(
+                            "flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 transition-all",
+                            p.tenant_name ? "border-primary/20 text-primary hover:bg-primary/5" : "border-rose-500/30 text-rose-500 hover:bg-rose-500/5 bg-rose-500/5 animate-pulse"
+                          )}
+                        >
+                          {p.tenant_name ? <Building2 className="w-3 h-3" /> : <Link className="w-3 h-3" />}
+                          <span className="font-bold text-[10px] uppercase">{p.tenant_name || 'Vincular Empresa'}</span>
+                        </button>
                       </td>
-                      <td className="px-6 py-5 font-bold text-xs">{p.role}</td>
+                      <td className="px-6 py-5 font-bold text-xs uppercase opacity-60 tracking-wider">{p.role}</td>
                       <td className="px-6 py-5">
                         <span className={cn("px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest", p.status === 'active' ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600")}>{p.status || 'active'}</span>
                       </td>
-                      <td className="px-8 py-5 text-right text-muted-foreground">
+                      <td className="px-8 py-5 text-right">
                          <button className="p-2 hover:bg-rose-50 text-rose-500 rounded-lg"><Ban className="w-4 h-4" /></button>
                       </td>
                     </tr>
@@ -213,14 +236,44 @@ export function MasterDashboard() {
       </div>
 
       <AnimatePresence>
+        {showLinkModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-background/80 backdrop-blur-xl">
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="bg-card border rounded-[2rem] p-10 w-full max-w-lg shadow-2xl relative">
+              <div className="flex justify-between items-center mb-8">
+                 <div>
+                    <h2 className="text-xl font-bold">Vincular Empresa</h2>
+                    <p className="text-sm text-muted-foreground font-medium">{showLinkModal.email}</p>
+                 </div>
+                 <button onClick={() => setShowLinkModal(null)} className="p-2 bg-muted rounded-xl"><X className="w-5 h-5" /></button>
+              </div>
+              
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Selecione a Organização</label>
+                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+                  {tenants.map(tenant => (
+                    <button
+                      key={tenant.id}
+                      onClick={() => handleLinkTenant(showLinkModal.id, tenant.id)}
+                      className="w-full flex items-center justify-between p-4 bg-muted/40 hover:bg-primary/10 border-2 border-transparent hover:border-primary/30 rounded-2xl transition-all group"
+                    >
+                      <div className="flex items-center gap-3">
+                         <Building2 className="w-5 h-5 text-muted-foreground group-hover:text-primary" />
+                         <span className="font-bold text-sm">{tenant.name}</span>
+                      </div>
+                      {showLinkModal.tenant_id === tenant.id && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
         {showModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-background/80 backdrop-blur-xl">
              <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="bg-card border rounded-[3rem] p-10 w-full max-w-xl shadow-2xl relative">
                 <div className="flex justify-between items-center mb-8">
-                   <div className="space-y-1">
-                      <h2 className="text-2xl font-bold tracking-tight">Novo Cliente</h2>
-                      <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest opacity-60">Ativação de Empresa e Chave Única</p>
-                   </div>
+                   <h2 className="text-2xl font-bold tracking-tight">Novo Cliente</h2>
                    <button onClick={() => setShowModal(false)} className="p-3 bg-muted rounded-2xl hover:rotate-90 transition-all"><X className="w-6 h-6" /></button>
                 </div>
                 <ClientForm onSave={handleCreateClient} onCancel={() => setShowModal(false)} />
@@ -233,46 +286,26 @@ export function MasterDashboard() {
 }
 
 function ClientForm({ onSave, onCancel }: any) {
-  const [form, setForm] = useState({
-    clientName: '',
-    email: '',
-    companyName: '',
-    plan: 'Basic'
-  });
-
+  const [form, setForm] = useState({ clientName: '', email: '', companyName: '', plan: 'Basic' });
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
-          <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Nome do Responsável</label>
-          <input className="w-full p-4 bg-muted/40 border border-transparent focus:border-primary rounded-2xl outline-none font-bold transition-all" placeholder="Ex: João Silva" value={form.clientName} onChange={e => setForm({...form, clientName: e.target.value})} />
+          <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Responsável</label>
+          <input className="w-full p-4 bg-muted/40 border rounded-2xl outline-none font-bold" placeholder="Nome" value={form.clientName} onChange={e => setForm({...form, clientName: e.target.value})} />
         </div>
         <div className="space-y-2">
-          <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">E-mail de Acesso</label>
-          <input className="w-full p-4 bg-muted/40 border border-transparent focus:border-primary rounded-2xl outline-none font-bold transition-all" placeholder="joao@email.com" value={form.email} onChange={e => setForm({...form, email: e.target.value})} />
+          <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">E-mail</label>
+          <input className="w-full p-4 bg-muted/40 border rounded-2xl outline-none font-bold" placeholder="email@exemplo.com" value={form.email} onChange={e => setForm({...form, email: e.target.value})} />
         </div>
       </div>
-
       <div className="space-y-2">
-        <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Nome da Empresa</label>
-        <div className="relative">
-          <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground opacity-40" />
-          <input className="w-full pl-12 pr-4 py-4 bg-muted/40 border border-transparent focus:border-primary rounded-2xl outline-none font-bold transition-all" placeholder="Ex: PG Digital Ltda" value={form.companyName} onChange={e => setForm({...form, companyName: e.target.value})} />
-        </div>
+        <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Empresa</label>
+        <input className="w-full p-4 bg-muted/40 border rounded-2xl outline-none font-bold" placeholder="Nome da Empresa" value={form.companyName} onChange={e => setForm({...form, companyName: e.target.value})} />
       </div>
-
-      <div className="space-y-2">
-        <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Plano de Licença</label>
-        <select className="w-full p-4 bg-muted/40 border border-transparent focus:border-primary rounded-2xl outline-none font-bold cursor-pointer appearance-none" value={form.plan} onChange={e => setForm({...form, plan: e.target.value})}>
-           <option value="Basic">Basic (1 Usuário)</option>
-           <option value="Pro">Pro (Até 5 Usuários)</option>
-           <option value="Enterprise">Enterprise (Ilimitado)</option>
-        </select>
-      </div>
-
-      <div className="mt-8 pt-6 border-t flex gap-4">
-         <button onClick={onCancel} className="flex-1 py-4 border rounded-[1.5rem] font-bold text-muted-foreground hover:bg-muted transition-all">CANCELAR</button>
-         <button onClick={() => onSave(form)} className="flex-1 py-4 bg-primary text-white rounded-[1.5rem] font-bold shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all">ATIVAR LICENÇA</button>
+      <div className="flex gap-4 mt-8 pt-6 border-t font-semibold">
+          <button onClick={onCancel} className="flex-1 py-4 border rounded-2xl hover:bg-muted">CANCELAR</button>
+          <button onClick={() => onSave(form)} className="flex-1 py-4 bg-primary text-white rounded-2xl shadow-xl shadow-primary/20 hover:scale-105 transition-all">ATIVAR LICENÇA</button>
       </div>
     </div>
   );
