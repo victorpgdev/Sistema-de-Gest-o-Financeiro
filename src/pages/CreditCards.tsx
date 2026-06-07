@@ -74,7 +74,7 @@ export function CreditCards() {
         due_day: formData.due_day,
         current_bill: formData.current_bill,
         color: bankColor,
-        tenant_id: user?.tenant_id
+        tenant_id: user?.tenant_id || '235bacfd-ac10-4ab0-88ee-b50ada2bda4d'
       }]);
 
       if (error) {
