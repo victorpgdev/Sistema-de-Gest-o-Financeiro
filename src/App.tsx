@@ -9,10 +9,11 @@ import { Transactions }   from './pages/Transactions';
 import { CreditCards }    from './pages/CreditCards';
 import { CashFlow }       from './pages/CashFlow';
 import { Reports }        from './pages/Reports';
+import { Team }           from './pages/Team';
 import { Settings }       from './pages/Settings';
 import { useEffect } from 'react';
 import { useAuthStore } from './store';
-import { Loader2, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { Loader2, ShieldAlert } from 'lucide-react';
 
 function App() {
   const { isAuthenticated, isLoading, initialize, tenant, user } = useAuthStore();
@@ -29,8 +30,6 @@ function App() {
     );
   }
 
-  // Lógica de Bloqueio de Licença (Multi-tenant) e Bloqueio Individual
-  // Se o usuário for banido INDIVIDUALMENTE ou se a EMPRESA estiver suspensa, bloqueia.
   const isAccountBlocked = user?.role !== 'MASTER' && (tenant?.status === 'suspended' || user?.status === 'banned');
 
   return (
@@ -49,6 +48,7 @@ function App() {
               <Route path="/transactions"   element={<Transactions />} />
               <Route path="/cash-flow"      element={<CashFlow />} />
               <Route path="/reports"        element={<Reports />} />
+              <Route path="/team"           element={<Team />} />
               <Route path="/settings"       element={<Settings />} />
               
               {/* Fallbacks */}

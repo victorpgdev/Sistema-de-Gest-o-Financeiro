@@ -10,7 +10,8 @@ import {
   Settings, 
   ChevronLeft,
   ShieldCheck,
-  Building2
+  Building2,
+  Users
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useUIStore, useAuthStore } from '@/store';
@@ -24,6 +25,7 @@ const MENU_ITEMS = [
   { icon: Wallet, label: 'Contas e Bancos', path: '/accounts' },
   { icon: CreditCard, label: 'Cartões de Crédito', path: '/cards' },
   { icon: CheckCircle2, label: 'Conciliação', path: '/reconciliation' },
+  { icon: Users, label: 'Minha Equipe', path: '/team' },
 ];
 
 export function Sidebar() {
