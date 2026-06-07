@@ -54,15 +54,13 @@ export const useAuthStore = create<AuthState>((set) => ({
           tenant_id: null,
           status: 'active'
         };
-        set({ user: masterUser, tenant: { id: 'master', name: 'ADMIN', plan: 'Enterprise', status: 'active' }, isAuthenticated: true });
+        set({ user: masterUser, tenant: { id: 'master', name: 'ADMIN', plan: 'Enterprise', status: 'active' }, isAuthenticated: true, isLoading: false });
         return;
       }
 
-      // Login Real via Supabase
       const { data, error } = await supabase.auth.signInWithPassword({ email, password: password || '' });
       if (error) throw error;
 
-      // Se logou com sucesso, busca perfil
       if (data.user) {
         const { data: profile } = await supabase
           .from('profiles')
@@ -79,24 +77,22 @@ export const useAuthStore = create<AuthState>((set) => ({
             tenant_id: profile.tenant_id,
             status: profile.status || 'active'
           };
-          set({ 
-            user: userObj, 
-            tenant: profile.tenants as any, 
-            isAuthenticated: true,
-            isLoading: false 
-          });
+          set({ user: userObj, tenant: profile.tenants as any, isAuthenticated: true, isLoading: false });
+        } else {
+           set({ isAuthenticated: true, user: { id: data.user.id, email: data.user.email!, name: 'Usuário', role: 'OWNER', tenant_id: null, status: 'active' }, isLoading: false });
         }
       }
     } catch (err) {
       set({ isAuthenticated: false, isLoading: false });
-      console.error('Erro de login:', err);
       throw err;
+    } finally {
+      set({ isLoading: false });
     }
   },
 
   logout: async () => {
     await supabase.auth.signOut();
-    set({ user: null, tenant: null, isAuthenticated: false });
+    set({ user: null, tenant: null, isAuthenticated: false, isLoading: false });
   },
 
   initialize: async () => {
@@ -104,7 +100,6 @@ export const useAuthStore = create<AuthState>((set) => ({
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
-        // Tenta buscar perfil, se falhar não trava o Master
         try {
           const { data: profile } = await supabase
             .from('profiles')
@@ -121,34 +116,12 @@ export const useAuthStore = create<AuthState>((set) => ({
               tenant_id: profile.tenant_id,
               status: profile.status || 'active'
             };
-
-            if (profile.id === '235bacfd-ac10-4ab0-88ee-b50ada2bda4d') {
-              userObj.role = 'MASTER';
-              userObj.status = 'active';
-            }
-
-            set({
-              isAuthenticated: true,
-              user: userObj,
-              tenant: (profile.tenants as any) || { status: 'active' },
-            });
-          } else if (session.user.id === '235bacfd-ac10-4ab0-88ee-b50ada2bda4d') {
-            // Se for seu ID e o perfil não existir, entra como master básico
-            set({
-               isAuthenticated: true,
-               user: { id: session.user.id, email: session.user.email!, name: 'Master', role: 'MASTER', tenant_id: null, status: 'active' },
-               tenant: { id: 'master', name: 'Master Panel', plan: 'Enterprise', status: 'active' }
-            });
+            set({ isAuthenticated: true, user: userObj, tenant: profile.tenants as any });
+          } else {
+            set({ isAuthenticated: true, user: { id: session.user.id, email: session.user.email!, name: 'Usuário', role: 'OWNER', tenant_id: null, status: 'active' } });
           }
         } catch (e) {
-           // Em caso de erro de coluna no banco, permite o Master entrar
-           if (session.user.id === '235bacfd-ac10-4ab0-88ee-b50ada2bda4d') {
-              set({
-                 isAuthenticated: true,
-                 user: { id: session.user.id, email: session.user.email!, name: 'Master', role: 'MASTER', tenant_id: null, status: 'active' },
-                 tenant: { id: 'master', name: 'Master Panel', plan: 'Enterprise', status: 'active' }
-              });
-           }
+          set({ isAuthenticated: true, user: { id: session.user.id, email: session.user.email!, name: 'Usuário', role: 'OWNER', tenant_id: null, status: 'active' } });
         }
       } else {
         set({ isAuthenticated: false, user: null, tenant: null });
