@@ -90,13 +90,19 @@ export function MasterDashboard() {
   };
 
   const handleDeleteTenant = async (id: string) => {
-    if (!window.confirm('TEM CERTEZA? Isso vai apagar a empresa e TODOS os dados vinculados a ela permanentemente.')) return;
+    const confirmText = window.prompt('⚠️ ATENÇÃO: Esta ação é IRREVERSÍVEL. Digite "DELETAR" para apagar esta empresa e todos os seus dados permanentemente do banco de dados:');
+    
+    if (confirmText !== 'DELETAR') {
+      if (confirmText !== null) alert('Confirmação inválida. Operação cancelada.');
+      return;
+    }
+
     setIsLoading(true);
     try {
       await supabase.from('profiles').delete().eq('tenant_id', id);
       const { error } = await supabase.from('tenants').delete().eq('id', id);
       if (error) throw error;
-      setNotification({ type: 'success', message: 'Empresa removida com sucesso.' });
+      setNotification({ type: 'success', message: 'Empresa e dados deletados permanentemente.' });
       fetchData();
     } catch (err: any) {
       setNotification({ type: 'error', message: err.message });
@@ -106,12 +112,18 @@ export function MasterDashboard() {
   };
 
   const handleDeleteProfile = async (id: string) => {
-    if (!window.confirm('Excluir este perfil de usuário?')) return;
+    const confirmText = window.prompt('Digite "DELETAR" para remover este usuário permanentemente:');
+    
+    if (confirmText !== 'DELETAR') {
+      if (confirmText !== null) alert('Confirmação inválida.');
+      return;
+    }
+
     setIsLoading(true);
     try {
       const { error } = await supabase.from('profiles').delete().eq('id', id);
       if (error) throw error;
-      setNotification({ type: 'success', message: 'Usuário removido.' });
+      setNotification({ type: 'success', message: 'Usuário removido do banco de dados.' });
       fetchData();
     } catch (err: any) {
       setNotification({ type: 'error', message: err.message });
