@@ -34,7 +34,7 @@ export function MasterDashboard() {
       setTenants(tRes.data || []);
       setProfiles(pRes.data.map(p => ({ ...p, tenant_name: p.tenants?.name })) || []);
     } catch (err: any) {
-      setNotification({ type: 'error', message: 'Erro ao sincronizar dados administrativos.' });
+      setNotification({ type: 'error', message: `Erro de Sincronização: ${err.message || 'Falha no banco'}` });
     } finally {
       setIsLoading(false);
     }
