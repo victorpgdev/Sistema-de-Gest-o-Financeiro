@@ -77,15 +77,41 @@ export function MasterDashboard() {
   const handleLinkTenant = async (profileId: string, tenantId: string) => {
     setIsLoading(true);
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ tenant_id: tenantId })
-        .eq('id', profileId);
-
+      const { error } = await supabase.from('profiles').update({ tenant_id: tenantId }).eq('id', profileId);
       if (error) throw error;
-
       setNotification({ type: 'success', message: 'Vínculo empresa-usuário atualizado!' });
       setShowLinkModal(null);
+      fetchData();
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteTenant = async (id: string) => {
+    if (!window.confirm('TEM CERTEZA? Isso vai apagar a empresa e TODOS os dados vinculados a ela permanentemente.')) return;
+    setIsLoading(true);
+    try {
+      await supabase.from('profiles').delete().eq('tenant_id', id);
+      const { error } = await supabase.from('tenants').delete().eq('id', id);
+      if (error) throw error;
+      setNotification({ type: 'success', message: 'Empresa removida com sucesso.' });
+      fetchData();
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteProfile = async (id: string) => {
+    if (!window.confirm('Excluir este perfil de usuário?')) return;
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.from('profiles').delete().eq('id', id);
+      if (error) throw error;
+      setNotification({ type: 'success', message: 'Usuário removido.' });
       fetchData();
     } catch (err: any) {
       setNotification({ type: 'error', message: err.message });
@@ -275,8 +301,11 @@ export function MasterDashboard() {
                            >
                             <Edit2 className="w-4 h-4" />
                            </button>
-                           <button className="p-2.5 hover:bg-rose-50 text-slate-500 hover:text-rose-500 rounded-xl transition-all border border-transparent hover:border-rose-100">
-                            <Ban className="w-4 h-4" />
+                           <button 
+                            onClick={() => handleDeleteTenant(t.id)}
+                            className="p-2.5 hover:bg-rose-50 text-slate-500 hover:text-rose-500 rounded-xl transition-all border border-transparent hover:border-rose-100"
+                           >
+                            <Trash2 className="w-4 h-4" />
                            </button>
                         </div>
                       </td>
@@ -327,8 +356,11 @@ export function MasterDashboard() {
                         )}>{p.status || 'active'}</span>
                       </td>
                       <td className="px-10 py-6 text-right">
-                         <button className="p-2.5 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-xl transition-all opacity-0 group-hover:opacity-100">
-                            <Ban className="w-4 h-4" />
+                         <button 
+                          onClick={() => handleDeleteProfile(p.id)}
+                          className="p-2.5 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                         >
+                            <Trash2 className="w-4 h-4" />
                          </button>
                       </td>
                     </tr>
