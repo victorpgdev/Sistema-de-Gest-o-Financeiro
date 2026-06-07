@@ -208,7 +208,19 @@ export function MasterDashboard() {
                           t.status === 'active' ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-rose-50 text-rose-600 border border-rose-100"
                         )}>{t.status}</span>
                       </td>
-                      <td className="px-8 py-6 font-bold text-xs text-slate-600">{t.plan}</td>
+                      <td className="px-8 py-6">
+                        <button 
+                          onClick={() => setShowEditTenantModal(t)}
+                          className={cn(
+                            "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] border transition-all hover:scale-105 active:scale-95",
+                            t.plan === 'Enterprise' ? "bg-indigo-50 text-indigo-600 border-indigo-100" :
+                            t.plan === 'Pro' ? "bg-cyan-50 text-cyan-600 border-cyan-100" :
+                            "bg-slate-50 text-slate-500 border-slate-200"
+                          )}
+                        >
+                          {t.plan}
+                        </button>
+                      </td>
                       <td className="px-8 py-6 text-[10px] font-mono text-slate-400 opacity-60">{t.id}</td>
                       <td className="px-10 py-6 text-right">
                         <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
