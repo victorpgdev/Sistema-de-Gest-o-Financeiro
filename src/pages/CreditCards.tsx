@@ -1,173 +1,306 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { 
-  Plus, CreditCard as CardIcon, Calendar, ArrowUpRight, 
-  Settings2, PlusCircle, AlertCircle, CheckCircle2, ChevronRight,
-  MoreHorizontal, Trash2, Edit2
+  Plus, CreditCard, MoreVertical, Trash2, 
+  CheckCircle2, X, Loader2, Landmark, AlertCircle,
+  Building2, Camera, ShieldCheck
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '@/lib/supabase';
 import { formatCurrency, cn } from '@/lib/utils';
+import { useAuthStore } from '@/store';
 
-interface CreditCard {
+interface Card {
   id: string;
   name: string;
-  lastDigits: string;
   limit: number;
-  used: number;
-  closingDay: number;
-  dueDay: number;
-  brand: 'Visa' | 'Mastercard' | 'Elo' | 'Amex';
-  color: string;
+  last_digits: string;
+  closing_day: number;
+  due_day: number;
+  current_bill: number;
+  color?: string;
 }
 
-const INITIAL_CARDS: CreditCard[] = [
-  { id: '1', name: 'Nubank Ultravioleta', lastDigits: '8842', limit: 15000, used: 4250.50, closingDay: 28, dueDay: 5, brand: 'Mastercard', color: '#8b5cf6' },
-  { id: '2', name: 'Itaú Business',       lastDigits: '1029', limit: 45000, used: 12800.00, closingDay: 15, dueDay: 22, brand: 'Visa', color: '#f97316' },
+const MAJOR_BANKS = [
+  { name: 'Nubank', color: 'bg-purple-600', textColor: 'text-white' },
+  { name: 'Itaú Business', color: 'bg-orange-500', textColor: 'text-white' },
+  { name: 'Bradesco', color: 'bg-red-600', textColor: 'text-white' },
+  { name: 'Santander', color: 'bg-rose-600', textColor: 'text-white' },
+  { name: 'Banco do Brasil', color: 'bg-yellow-400', textColor: 'text-blue-900' },
+  { name: 'Inter', color: 'bg-orange-600', textColor: 'text-white' },
+  { name: 'BTG Pactual', color: 'bg-slate-900', textColor: 'text-white' },
+  { name: 'C6 Bank', color: 'bg-zinc-900', textColor: 'text-white' },
+  { name: 'Chase', color: 'bg-blue-800', textColor: 'text-white' },
+  { name: 'Wells Fargo', color: 'bg-red-700', textColor: 'text-white' },
+  { name: 'Bank of America', color: 'bg-blue-700', textColor: 'text-white' },
 ];
 
-const BRANDS = ['Visa', 'Mastercard', 'Elo', 'Amex'] as const;
-const COLORS = ['#8b5cf6', '#f97316', '#3b82f6', '#ef4444', '#10b981', '#000000'];
-
 export function CreditCards() {
-  const [cards, setCards] = useState<CreditCard[]>(INITIAL_CARDS);
+  const { user } = useAuthStore();
+  const [cards, setCards] = useState<Card[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [editing, setEditing] = useState<CreditCard | null>(null);
+  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
-  const totalUsed = useMemo(() => cards.reduce((s, c) => s + c.used, 0), [cards]);
-  const totalLimit = useMemo(() => cards.reduce((s, c) => s + c.limit, 0), [cards]);
+  const fetchCards = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('credit_cards')
+        .select('*')
+        .order('name');
+      if (!error) setCards(data || []);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => { 
+    fetchCards(); 
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
+  const handleSave = async (formData: any) => {
+    const bankColor = MAJOR_BANKS.find(b => formData.name.includes(b.name))?.color || 'bg-slate-800';
+    try {
+      const { error } = await supabase.from('credit_cards').insert([{
+        ...formData,
+        color: bankColor,
+        tenant_id: user?.tenant_id || '235bacfd-ac10-4ab0-88ee-b50ada2bda4d'
+      }]);
+
+      if (error) {
+        setNotification({ type: 'error', message: `Erro: ${error.message}` });
+      } else {
+        setNotification({ type: 'success', message: 'Cartão adicionado com sucesso!' });
+        fetchCards();
+        setShowModal(false);
+      }
+    } catch (err) {
+      setNotification({ type: 'error', message: 'Erro de conexão.' });
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase.from('credit_cards').delete().eq('id', id);
+    if (!error) {
+      setNotification({ type: 'success', message: 'Cartão excluído.' });
+      fetchCards();
+    }
+  };
+
+  const totalBills = cards.reduce((acc, curr) => acc + curr.current_bill, 0);
+  const totalLimit = cards.reduce((acc, curr) => acc + curr.limit, 0);
 
   return (
-    <div className="space-y-8 pb-12">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-8 max-w-7xl mx-auto px-4 relative">
+      <AnimatePresence>
+        {notification && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className={cn(
+              "fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border backdrop-blur-md",
+              notification.type === 'success' ? "bg-emerald-500/90 text-white border-emerald-400" : "bg-rose-500/90 text-white border-rose-400"
+            )}
+          >
+            {notification.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+            <span className="font-bold text-sm tracking-tight">{notification.message}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Cartões de Crédito</h1>
-          <p className="text-muted-foreground">Gerencie seus limites, faturas e datas de fechamento.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Cartões de Crédito</h1>
+          <p className="text-sm text-muted-foreground font-medium">Gerencie seus limites, faturas e datas de fechamento.</p>
         </div>
         <button 
-          onClick={() => { setEditing(null); setShowModal(true); }}
-          className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-2xl font-bold shadow-lg shadow-primary/20 hover:scale-105 transition-transform active:scale-95"
+          onClick={() => setShowModal(true)}
+          className="px-6 py-3 bg-primary text-primary-foreground rounded-2xl font-bold shadow-xl shadow-primary/20 flex items-center gap-2 hover:scale-105 transition-all outline-none"
         >
           <Plus className="w-5 h-5" /> Adicionar Cartão
         </button>
       </div>
 
-      {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="p-6 bg-card border rounded-3xl shadow-sm">
-          <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2">Total em Faturas</p>
-          <h3 className="text-3xl font-extrabold text-rose-600 tabular-nums">{formatCurrency(totalUsed)}</h3>
-          <div className="mt-4 flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <AlertCircle className="w-4 h-4 text-amber-500" />
-            <span>Próximo vencimento em 4 dias</span>
-          </div>
-        </div>
-        <div className="p-6 bg-card border rounded-3xl shadow-sm col-span-1 md:col-span-2 flex flex-col justify-between">
-           <div className="flex items-center justify-between">
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Limite Total Disponível</p>
-              <p className="text-sm font-bold text-emerald-600">{( (1 - (totalUsed/totalLimit)) * 100).toFixed(1)}% livre</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-card border rounded-[2.5rem] p-8 shadow-sm">
+           <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-2">Total em Faturas</p>
+           <div className="text-4xl font-black tracking-tighter text-rose-600 tabular-nums">
+             {formatCurrency(totalBills)}
            </div>
-           <h3 className="text-3xl font-extrabold tabular-nums mt-2">{formatCurrency(totalLimit - totalUsed)}</h3>
-           <div className="w-full h-2 bg-muted rounded-full mt-4 overflow-hidden">
-             <div 
-                className="h-full bg-primary transition-all duration-1000" 
-                style={{ width: `${(totalUsed / totalLimit) * 100}%` }}
-             />
+           <div className="mt-4 flex items-center gap-2 text-xs font-semibold text-amber-600 bg-amber-500/10 w-fit px-3 py-1 rounded-full">
+             <AlertCircle className="w-3 h-3" /> Próximo vencimento em 4 dias
+           </div>
+        </div>
+        <div className="bg-card border rounded-[2.5rem] p-8 shadow-sm">
+           <div className="flex justify-between items-start mb-2">
+             <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Limite Total Disponível</p>
+             <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded-full">71.6% livre</span>
+           </div>
+           <div className="text-4xl font-black tracking-tighter tabular-nums">
+             {formatCurrency(totalLimit - totalBills)}
+           </div>
+           <div className="mt-6 w-full h-2 bg-muted rounded-full overflow-hidden">
+             <div className="h-full bg-primary rounded-full transition-all duration-1000" style={{ width: `${((totalLimit - totalBills) / totalLimit) * 100}%` }} />
            </div>
         </div>
       </div>
 
-      {/* Cards List */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {cards.map(card => (
-          <div key={card.id} className="group relative">
-             {/* The Visual Card */}
-             <div className="relative h-56 w-full rounded-[2rem] p-8 text-white shadow-2xl transition-all duration-500 group-hover:-translate-y-2 group-hover:rotate-1" style={{ backgroundColor: card.color }}>
-                <div className="absolute top-0 right-0 p-8 opacity-20">
-                   <CardIcon className="w-32 h-32 rotate-12" />
-                </div>
-                
-                <div className="relative h-full flex flex-col justify-between">
-                   <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                         <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center font-bold italic">
-                            {card.brand[0]}
-                         </div>
-                         <h3 className="text-xl font-bold tracking-tight">{card.name}</h3>
-                      </div>
-                      <Settings2 className="w-6 h-6 opacity-60 cursor-pointer hover:opacity-100 transition-opacity" />
-                   </div>
-
-                   <div>
-                      <p className="text-white/60 text-xs font-bold uppercase tracking-[0.2em] mb-1">Limite Disponível</p>
-                      <h4 className="text-3xl font-bold tabular-nums">{formatCurrency(card.limit - card.used)}</h4>
-                   </div>
-
-                   <div className="flex items-center justify-between pt-4 border-t border-white/20">
-                      <div className="flex gap-4">
-                         <div>
-                            <p className="text-[10px] text-white/50 uppercase font-bold">Fechamento</p>
-                            <p className="text-sm font-bold">Dia {card.closingDay}</p>
-                         </div>
-                         <div>
-                            <p className="text-[10px] text-white/50 uppercase font-bold">Vencimento</p>
-                            <p className="text-sm font-bold">Dia {card.dueDay}</p>
-                         </div>
-                      </div>
-                      <p className="text-sm font-mono font-bold tracking-widest opacity-80">•••• {card.lastDigits}</p>
-                   </div>
-                </div>
-             </div>
-
-             {/* Card Stats Detail below */}
-             <div className="mt-4 px-4 flex items-center justify-between text-sm">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {isLoading ? (
+          <div className="col-span-full py-20 text-center"><Loader2 className="w-10 h-10 animate-spin mx-auto text-primary opacity-20" /></div>
+        ) : cards.length === 0 ? (
+          <div className="col-span-full py-20 border-2 border-dashed rounded-[3rem] flex flex-col items-center justify-center text-muted-foreground gap-3">
+             <CreditCard className="w-12 h-12 opacity-10" />
+             <p className="font-semibold">Nenhum cartão configurado.</p>
+          </div>
+        ) : cards.map(card => (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            key={card.id} 
+            className={cn("rounded-[2.5rem] p-4 group relative overflow-hidden transition-all hover:scale-[1.02] active:scale-[0.98] shadow-2xl", card.color || 'bg-slate-800')}
+          >
+            <div className="absolute top-0 right-0 p-8 opacity-10">
+               <CreditCard className="w-40 h-40" />
+            </div>
+            
+            <div className="relative p-6 space-y-12">
+              <div className="flex items-start justify-between">
                 <div className="flex items-center gap-4">
-                   <div>
-                      <p className="text-muted-foreground text-xs font-medium">Fatura Atual</p>
-                      <p className="font-bold text-rose-600">{formatCurrency(card.used)}</p>
-                   </div>
-                   <div className="h-8 w-px bg-border" />
-                   <div>
-                      <p className="text-muted-foreground text-xs font-medium">Limite Total</p>
-                      <p className="font-bold">{formatCurrency(card.limit)}</p>
+                   <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center font-black text-white">{card.name[0]}</div>
+                   <div className="text-white">
+                      <h3 className="font-bold text-xl">{card.name}</h3>
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Limite Disponível</p>
                    </div>
                 </div>
-                <button className="flex items-center gap-2 font-bold text-primary hover:underline">
-                   Ver Fatura <ChevronRight className="w-4 h-4" />
-                </button>
-             </div>
-          </div>
-        ))}
+                <button onClick={() => handleDelete(card.id)} className="p-2 bg-white/10 hover:bg-rose-500 text-white rounded-xl transition-all opacity-0 group-hover:opacity-100"><Trash2 className="w-4 h-4" /></button>
+              </div>
 
-        {/* Empty Placeholder / Add Card */}
-        <button 
-           onClick={() => { setEditing(null); setShowModal(true); }}
-           className="h-56 w-full border-2 border-dashed border-border rounded-[2rem] flex flex-col items-center justify-center gap-4 text-muted-foreground hover:border-primary/50 hover:bg-primary/5 transition-all group"
-        >
-           <div className="w-14 h-14 bg-muted rounded-2xl flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all shadow-lg">
-              <PlusCircle className="w-8 h-8" />
-           </div>
-           <p className="font-bold">Novo Cartão de Crédito</p>
-        </button>
+              <div className="text-4xl font-black text-white tracking-widest tabular-nums">
+                {formatCurrency(card.limit - card.current_bill)}
+              </div>
+
+              <div className="flex justify-between items-end">
+                <div className="flex gap-8">
+                   <div className="text-white/60">
+                      <p className="text-[9px] font-black uppercase tracking-widest">Fechamento</p>
+                      <p className="font-bold text-sm">Dia {card.closing_day}</p>
+                   </div>
+                   <div className="text-white/60">
+                      <p className="text-[9px] font-black uppercase tracking-widest">Vencimento</p>
+                      <p className="font-bold text-sm">Dia {card.due_day}</p>
+                   </div>
+                </div>
+                <div className="text-right text-white/40 font-mono text-sm tracking-[0.3em]">
+                   •••• {card.last_digits}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 flex items-center justify-between rounded-b-[2rem] -mx-4 -mb-4 mt-4">
+               <div>
+                  <p className="text-[10px] font-black text-muted-foreground uppercase opacity-60">Fatura Atual</p>
+                  <p className="font-bold text-rose-600">{formatCurrency(card.current_bill)}</p>
+               </div>
+               <div className="text-right">
+                  <p className="text-[10px] font-black text-muted-foreground uppercase opacity-60">Limite Total</p>
+                  <p className="font-bold">{formatCurrency(card.limit)}</p>
+               </div>
+               <button className="text-primary font-bold text-xs flex items-center gap-1 hover:gap-2 transition-all">Ver Fatura <X className="w-4 h-4 rotate-45" /></button>
+            </div>
+          </motion.div>
+        ))}
       </div>
 
-      {/* Modal - Basic implementation for demo */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-           <div className="bg-card border rounded-3xl p-8 w-full max-w-md shadow-2xl">
-              <h2 className="text-2xl font-bold mb-6">Configurar Cartão</h2>
-              <p className="text-muted-foreground mb-8 text-sm">Preencha os dados do seu cartão para um controle preciso de faturas.</p>
-              <div className="space-y-4 mb-8">
-                 <input className="w-full p-4 bg-muted border-none rounded-2xl outline-none focus:ring-2 focus:ring-primary" placeholder="Nome do Cartão (ex: Nubank)" />
-                 <div className="grid grid-cols-2 gap-4">
-                    <input className="w-full p-4 bg-muted border-none rounded-2xl outline-none focus:ring-2 focus:ring-primary" placeholder="Limite (R$)" type="number" />
-                    <input className="w-full p-4 bg-muted border-none rounded-2xl outline-none focus:ring-2 focus:ring-primary" placeholder="Últimos 4 digitos" />
-                 </div>
-              </div>
-              <div className="flex gap-4">
-                 <button onClick={() => setShowModal(false)} className="flex-1 py-4 border rounded-2xl font-bold hover:bg-muted transition-colors">Cancelar</button>
-                 <button className="flex-1 py-4 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/20">Salvar Cartão</button>
-              </div>
-           </div>
+      <AnimatePresence>
+        {showModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-background/80 backdrop-blur-xl">
+             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="bg-card border rounded-[3rem] p-10 w-full max-w-xl shadow-2xl relative">
+                <div className="flex justify-between items-center mb-8">
+                   <h2 className="text-2xl font-bold tracking-tight">Configurar Cartão</h2>
+                   <button onClick={() => setShowModal(false)} className="p-3 bg-muted rounded-2xl hover:rotate-90 transition-all"><X className="w-6 h-6" /></button>
+                </div>
+                <CardForm onSave={handleSave} onCancel={() => setShowModal(false)} />
+             </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function CardForm({ onSave, onCancel }: any) {
+  const [formData, setFormData] = useState({
+    name: '',
+    limit: 0,
+    last_digits: '',
+    closing_day: 1,
+    due_day: 1,
+    current_bill: 0
+  });
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+
+  const handleSearch = (val: string) => {
+    setFormData({...formData, name: val});
+    if (val.length > 1) {
+      setSuggestions(MAJOR_BANKS.filter(b => b.name.toLowerCase().includes(val.toLowerCase())));
+    } else {
+      setSuggestions([]);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-2 relative">
+        <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Nome do Cartão (ex: Nubank)</label>
+        <input 
+          className="w-full p-4 bg-muted/40 border border-transparent focus:border-primary rounded-2xl outline-none font-bold" 
+          placeholder="Digite o banco ou nome..." 
+          value={formData.name}
+          onChange={e => handleSearch(e.target.value)}
+        />
+        <AnimatePresence>
+           {suggestions.length > 0 && (
+             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute z-10 w-full mt-2 bg-card border rounded-2xl shadow-2xl overflow-hidden max-h-48 overflow-y-auto">
+                {suggestions.map(b => (
+                  <button key={b.name} onClick={() => { setFormData({...formData, name: b.name}); setSuggestions([]); }} className="w-full px-6 py-3 text-left hover:bg-primary hover:text-white transition-colors text-sm font-bold flex items-center justify-between">
+                    {b.name} <div className={cn("w-3 h-3 rounded-full", b.color)} />
+                  </button>
+                ))}
+             </motion.div>
+           )}
+        </AnimatePresence>
+      </div>
+
+      <div className="grid grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Limite (R$)</label>
+          <input type="number" className="w-full p-4 bg-muted/40 border border-transparent focus:border-primary rounded-2xl outline-none font-bold tabular-nums" placeholder="0,00" value={formData.limit || ''} onChange={e => setFormData({...formData, limit: Number(e.target.value)})} />
         </div>
-      )}
+        <div className="space-y-2">
+          <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Últimos 4 dígitos</label>
+          <input maxLength={4} className="w-full p-4 bg-muted/40 border border-transparent focus:border-primary rounded-2xl outline-none font-bold font-mono tracking-widest" placeholder="0000" value={formData.last_digits} onChange={e => setFormData({...formData, last_digits: e.target.value})} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Dia do Fechamento</label>
+          <input type="number" min={1} max={31} className="w-full p-4 bg-muted/40 border border-transparent focus:border-primary rounded-2xl outline-none font-bold" value={formData.closing_day} onChange={e => setFormData({...formData, closing_day: Number(e.target.value)})} />
+        </div>
+        <div className="space-y-2">
+          <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Dia do Vencimento</label>
+          <input type="number" min={1} max={31} className="w-full p-4 bg-muted/40 border border-transparent focus:border-primary rounded-2xl outline-none font-bold" value={formData.due_day} onChange={e => setFormData({...formData, due_day: Number(e.target.value)})} />
+        </div>
+      </div>
+
+      <div className="mt-10 flex gap-4">
+        <button onClick={onCancel} className="flex-1 py-4 border rounded-[1.5rem] font-bold text-muted-foreground hover:bg-muted transition-all">Cancelar</button>
+        <button onClick={() => onSave(formData)} className="flex-1 py-4 bg-primary text-white rounded-[1.5rem] font-bold shadow-xl shadow-primary/20 hover:scale-105 transition-all">Salvar Cartão</button>
+      </div>
     </div>
   );
 }

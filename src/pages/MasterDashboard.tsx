@@ -40,13 +40,22 @@ export function MasterDashboard() {
 
   const fetchData = async () => {
     setIsLoading(true);
-    const [tRes, pRes] = await Promise.all([
-      supabase.from('tenants').select('*').order('name'),
-      supabase.from('profiles').select('*, tenants(name)')
-    ]);
-    if (!tRes.error) setTenants(tRes.data || []);
-    if (!pRes.error) setProfiles(pRes.data.map(p => ({ ...p, tenant_name: p.tenants?.name })) || []);
-    setIsLoading(false);
+    try {
+      const [tRes, pRes] = await Promise.all([
+        supabase.from('tenants').select('*').order('created_at', { ascending: false }),
+        supabase.from('profiles').select('*, tenants(name)').order('created_at', { ascending: false })
+      ]);
+      
+      if (tRes.error) throw tRes.error;
+      if (pRes.error) throw pRes.error;
+
+      setTenants(tRes.data || []);
+      setProfiles(pRes.data.map(p => ({ ...p, tenant_name: p.tenants?.name })) || []);
+    } catch (err: any) {
+      console.error('Erro ao buscar dados master:', err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => { fetchData(); }, []);

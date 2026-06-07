@@ -9,6 +9,8 @@ import { supabase } from '@/lib/supabase';
 import { formatCurrency, cn } from '@/lib/utils';
 import { useAuthStore } from '@/store';
 
+import { GLOBAL_BANKS } from '@/lib/banks';
+
 interface BankAccount {
   id: string;
   bank_name: string;
@@ -17,26 +19,6 @@ interface BankAccount {
   account_number: string;
   agency: string;
 }
-
-const MAJOR_BANKS = [
-  { name: 'Itaú Unibanco', code: '341' },
-  { name: 'Bradesco', code: '237' },
-  { name: 'Nubank', code: '260' },
-  { name: 'Santander', code: '033' },
-  { name: 'Banco do Brasil', code: '001' },
-  { name: 'Caixa Econômica', code: '104' },
-  { name: 'Inter', code: '077' },
-  { name: 'BTG Pactual', code: '208' },
-  { name: 'XP Investimentos', code: '102' },
-  { name: 'C6 Bank', code: '336' },
-  { name: 'Safra', code: '422' },
-  { name: 'Wells Fargo', code: 'WF' },
-  { name: 'JPMorgan Chase', code: 'JPM' },
-  { name: 'Bank of America', code: 'BOA' },
-  { name: 'Citibank', code: 'CITI' },
-  { name: 'HSBC', code: 'HSBC' },
-  { name: 'Barclays', code: 'BARC' },
-];
 
 export function BankAccounts() {
   const { user } = useAuthStore();
@@ -218,7 +200,7 @@ function BankForm({ onSave, onCancel }: any) {
   const handleBankSearch = (val: string) => {
     setFormData({...formData, bank_name: val});
     if (val.length > 1) {
-      const filtered = MAJOR_BANKS.filter(b => b.name.toLowerCase().includes(val.toLowerCase()));
+      const filtered = GLOBAL_BANKS.filter(b => b.name.toLowerCase().includes(val.toLowerCase()));
       setBankSuggestions(filtered);
     } else {
       setBankSuggestions([]);
