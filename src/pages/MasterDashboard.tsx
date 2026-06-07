@@ -108,6 +108,7 @@ export function MasterDashboard() {
       const { error: pError } = await supabase
         .from('profiles')
         .insert([{ 
+          id: crypto.randomUUID(),
           email: form.email, 
           name: form.clientName, 
           role: 'OWNER', 
