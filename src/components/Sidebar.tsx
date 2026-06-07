@@ -71,21 +71,7 @@ export function Sidebar() {
           </NavLink>
         ))}
 
-        {user?.role === 'MASTER' && (
-          <div className="pt-6 mt-6 border-t border-border/50">
-             {isSidebarOpen && <p className="px-3 text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-2">Administração</p>}
-             <NavLink
-                to="/master"
-                className={({ isActive }) => cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group",
-                  isActive ? "bg-amber-500/10 text-amber-600" : "text-muted-foreground hover:bg-amber-500/5 hover:text-amber-600"
-                )}
-              >
-                <ShieldCheck className={cn("w-5 h-5 shrink-0", !isSidebarOpen && "mx-auto")} />
-                {isSidebarOpen && <span>Master Admin</span>}
-              </NavLink>
-          </div>
-        )}
+        {/* O link de Administração foi movido exclusivamente para o menu de usuário no Header para manter a UI limpa */}
       </nav>
 
       <div className="p-4 border-t">
