@@ -41,6 +41,11 @@ export function Header() {
     setNotifications(notifications.map(n => ({ ...n, read: true })));
   };
 
+  const handleSettings = () => {
+    navigate('/settings');
+    setShowUserMenu(false);
+  };
+
   return (
     <header className="h-20 border-b bg-background/80 backdrop-blur-md px-8 flex items-center justify-between sticky top-0 z-40">
       <div className="relative w-full max-w-md hidden md:block">
@@ -169,7 +174,10 @@ export function Header() {
                   exit={{ opacity: 0, y: 10, scale: 0.95 }}
                   className="absolute right-0 mt-3 w-64 bg-card border rounded-[2rem] shadow-2xl overflow-hidden z-50 origin-top-right p-2"
                 >
-                  <button className="w-full flex items-center gap-3 px-5 py-4 hover:bg-muted rounded-2xl text-sm font-bold transition-all group">
+                  <button 
+                    onClick={handleSettings}
+                    className="w-full flex items-center gap-3 px-5 py-4 hover:bg-muted rounded-2xl text-sm font-bold transition-all group"
+                  >
                     <User className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" /> Meus Dados
                   </button>
                   {user?.role === 'MASTER' && (
@@ -180,7 +188,10 @@ export function Header() {
                       <ShieldCheck className="w-5 h-5 group-hover:scale-110 transition-transform" /> Master Admin
                     </button>
                   )}
-                  <button className="w-full flex items-center gap-3 px-5 py-4 hover:bg-muted rounded-2xl text-sm font-bold transition-all group">
+                  <button 
+                    onClick={handleSettings}
+                    className="w-full flex items-center gap-3 px-5 py-4 hover:bg-muted rounded-2xl text-sm font-bold transition-all group"
+                  >
                     <Settings className="w-5 h-5 text-muted-foreground group-hover:rotate-45 transition-transform" /> Configurações
                   </button>
                   <div className="my-2 border-t border-dashed" />

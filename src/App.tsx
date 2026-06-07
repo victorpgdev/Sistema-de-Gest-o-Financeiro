@@ -9,6 +9,7 @@ import { Transactions }   from './pages/Transactions';
 import { CreditCards }    from './pages/CreditCards';
 import { CashFlow }       from './pages/CashFlow';
 import { Reports }        from './pages/Reports';
+import { Settings }       from './pages/Settings';
 import { useEffect } from 'react';
 import { useAuthStore } from './store';
 import { Loader2, AlertTriangle, ShieldAlert } from 'lucide-react';
@@ -48,6 +49,7 @@ function App() {
               <Route path="/transactions"   element={<Transactions />} />
               <Route path="/cash-flow"      element={<CashFlow />} />
               <Route path="/reports"        element={<Reports />} />
+              <Route path="/settings"       element={<Settings />} />
               
               {/* Fallbacks */}
               <Route path="/cobrancas"   element={<PlaceholderPage title="Régua de Cobrança" desc="Em breve." />} />
