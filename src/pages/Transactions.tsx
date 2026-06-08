@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   Plus, ArrowUpCircle, ArrowDownCircle, 
   Trash2, CheckCircle2, Loader2, AlertCircle,
   Calendar as CalendarIcon, List as ListIcon,
-  ChevronLeft, ChevronRight, Download
+  ChevronLeft, ChevronRight, Download, ChevronDown, Check,
+  Search, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
@@ -34,6 +35,11 @@ export function Transactions() {
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
+  
+  // Custom UI States
+  const [isOpenFilter, setIsOpenFilter] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<Transaction | null>(null);
+  const filterRef = useRef<HTMLDivElement>(null);
 
   const fetchTransactions = async () => {
     if (!user?.tenant_id && user?.role !== 'MASTER') {
@@ -64,6 +70,14 @@ export function Transactions() {
       return () => clearTimeout(timer);
     }
   }, [notification]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) setIsOpenFilter(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const filtered = transactions.filter(t => 
     t.description.toLowerCase().includes(searchTerm.toLowerCase()) && 
@@ -97,7 +111,7 @@ export function Transactions() {
     try {
       const { error: tError } = await supabase
         .from('transactions')
-        .insert([{ ...formData, tenant_id: user.tenant_id, user_id: user.id }]);
+        .insert([{ ...formData, tenant_id: user.tenant_id }]);
 
       if (tError) throw tError;
 
@@ -125,7 +139,6 @@ export function Transactions() {
   };
 
   const handleDelete = async (t: Transaction) => {
-    if (!window.confirm('Excluir esta transação? O saldo será estornado automaticamente.')) return;
     setIsLoading(true);
     try {
       if (t.status === 'paid' && t.bank_account_id) {
@@ -142,6 +155,7 @@ export function Transactions() {
       });
       setNotification({ type: 'success', message: '🔄 Transação removida e saldo estornado.' });
       fetchTransactions();
+      setConfirmDelete(null);
     } catch (err: any) {
       setNotification({ type: 'error', message: err.message });
     } finally {
@@ -156,7 +170,7 @@ export function Transactions() {
           <motion.div 
             initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
             className={cn(
-              "fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border backdrop-blur-md text-white font-bold text-sm",
+              "fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border backdrop-blur-md text-white font-bold text-sm",
               notification.type === 'success' ? "bg-emerald-500/90 border-emerald-400" : "bg-rose-500/90 border-rose-400"
             )}
           >
@@ -191,20 +205,38 @@ export function Transactions() {
         </div>
       </div>
 
-      <div className="flex items-center gap-4 bg-white p-4 rounded-[1.5rem] border overflow-hidden">
+      <div className="flex items-center gap-4 bg-white p-4 rounded-[1.5rem] border">
         <div className="relative flex-1">
-          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input className="w-full pl-10 pr-4 py-2 bg-slate-50 border-none outline-none font-bold text-xs rounded-xl" placeholder="Pesquisar lançamentos..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
         </div>
-        <select className="bg-slate-50 border-none outline-none font-black text-[10px] uppercase px-4 py-2 rounded-xl text-slate-500" value={filterType} onChange={e => setFilterType(e.target.value as any)}>
-          <option value="all">Todos</option>
-          <option value="income">Receitas</option>
-          <option value="expense">Despesas</option>
-        </select>
+        
+        {/* CUSTOM FILTER DROPDOWN */}
+        <div className="relative" ref={filterRef}>
+          <button onClick={() => setIsOpenFilter(!isOpenFilter)} className="bg-slate-50 border-none outline-none font-black text-[10px] uppercase px-4 py-2 rounded-xl text-slate-500 flex items-center gap-2 hover:bg-slate-100 transition-all">
+            {filterType === 'all' ? 'Todos' : filterType === 'income' ? 'Receitas' : 'Despesas'}
+            <ChevronDown className={cn("w-3 h-3 transition-transform", isOpenFilter && "rotate-180")} />
+          </button>
+          <AnimatePresence>
+            {isOpenFilter && (
+              <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="absolute z-50 right-0 mt-2 bg-white border rounded-2xl shadow-2xl p-1 min-w-[140px]">
+                {[
+                  { id: 'all', label: 'Todos' },
+                  { id: 'income', label: 'Receitas' },
+                  { id: 'expense', label: 'Despesas' }
+                ].map(opt => (
+                  <button key={opt.id} onClick={() => { setFilterType(opt.id as any); setIsOpenFilter(false); }} className={cn("w-full text-left px-4 py-2 rounded-xl text-[10px] font-bold uppercase transition-all", filterType === opt.id ? "bg-primary text-white" : "hover:bg-slate-50 text-slate-600")}>
+                    {opt.label}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       {viewMode === 'list' ? (
-        <ListView transactions={filtered} isLoading={isLoading} onDelete={handleDelete} />
+        <ListView transactions={filtered} isLoading={isLoading} onDelete={setConfirmDelete} />
       ) : (
         <CalendarView transactions={filtered} currentDate={currentDate} onMonthChange={setCurrentDate} />
       )}
@@ -212,15 +244,26 @@ export function Transactions() {
       {showModal && (
         <TransactionModal onClose={() => setShowModal(false)} onSave={handleSave} />
       )}
-    </div>
-  );
-}
 
-function SearchIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
-    </svg>
+      {/* CONFIRM DELETE MODAL NATIVO */}
+      <AnimatePresence>
+        {confirmDelete && (
+          <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white border rounded-[2.5rem] p-10 w-full max-w-sm shadow-2xl text-center">
+              <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Trash2 className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-800 mb-2">Excluir Lançamento?</h3>
+              <p className="text-sm text-slate-500 mb-8">Esta ação não pode ser desfeita e o saldo da conta será estornado automaticamente.</p>
+              <div className="flex gap-3">
+                <button onClick={() => setConfirmDelete(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold text-xs uppercase hover:bg-slate-200 transition-all">Cancelar</button>
+                <button onClick={() => handleDelete(confirmDelete)} className="flex-1 py-3 bg-rose-500 text-white rounded-xl font-bold text-xs uppercase shadow-lg shadow-rose-200 hover:scale-105 transition-all">Confirmar</button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 

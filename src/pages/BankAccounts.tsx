@@ -26,6 +26,7 @@ export function BankAccounts() {
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<BankAccount | null>(null);
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
   const fetchAccounts = async () => {
@@ -63,7 +64,6 @@ export function BankAccounts() {
       return;
     }
 
-    // HIGIENIZAÇÃO DE DADOS (Anti-XSS)
     const sanitizedData = {
       ...formData,
       bank_name: security.sanitize(formData.bank_name),
@@ -71,7 +71,6 @@ export function BankAccounts() {
       account_number: security.sanitize(formData.account_number)
     };
 
-    // VERIFICAÇÃO DE LIMITE DE PLANO
     const userPlan = tenant?.plan || 'Basic';
     const canAdd = await checkPlanLimit(user.tenant_id, userPlan, 'bankAccounts');
     
@@ -105,11 +104,18 @@ export function BankAccounts() {
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from('bank_accounts').delete().eq('id', id);
-    if (!error) {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.from('bank_accounts').delete().eq('id', id);
+      if (error) throw error;
       await logAuditAction(user?.tenant_id!, user?.id!, 'DELETE_BANK_ACCOUNT', { id });
-      setNotification({ type: 'success', message: 'Conta removida.' });
+      setNotification({ type: 'success', message: '🔄 Conta removida com sucesso.' });
       fetchAccounts();
+      setConfirmDelete(null);
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -122,7 +128,7 @@ export function BankAccounts() {
           <motion.div 
             initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
             className={cn(
-              "fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border backdrop-blur-md text-white font-bold text-sm",
+              "fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border backdrop-blur-md text-white font-bold text-sm",
               notification.type === 'success' ? "bg-emerald-500/90 border-emerald-400" : "bg-rose-500/90 border-rose-400"
             )}
           >
@@ -176,7 +182,7 @@ export function BankAccounts() {
               <div className="w-12 h-12 bg-muted rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
                 <Landmark className="w-6 h-6 text-primary" />
               </div>
-              <button onClick={() => handleDelete(acc.id)} className="p-2 hover:bg-rose-50 text-rose-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="w-4 h-4" /></button>
+              <button onClick={() => setConfirmDelete(acc)} className="p-2 hover:bg-rose-50 text-rose-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="w-4 h-4" /></button>
             </div>
             <div className="space-y-1">
               <h3 className="font-bold text-lg text-slate-700">{acc.bank_name}</h3>
@@ -202,6 +208,24 @@ export function BankAccounts() {
                 </div>
                 <BankForm onSave={handleSave} onCancel={() => setShowModal(false)} />
              </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {confirmDelete && (
+          <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white border rounded-[2.5rem] p-10 w-full max-w-sm shadow-2xl text-center">
+              <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Trash2 className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-800 mb-2">Excluir Conta?</h3>
+              <p className="text-sm text-slate-500 mb-8">Esta ação removerá o banco "{confirmDelete.bank_name}" e todos os dados vinculados.</p>
+              <div className="flex gap-3">
+                <button onClick={() => setConfirmDelete(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold text-xs uppercase hover:bg-slate-200 transition-all">Cancelar</button>
+                <button onClick={() => handleDelete(confirmDelete.id)} className="flex-1 py-3 bg-rose-500 text-white rounded-xl font-bold text-xs uppercase shadow-lg shadow-rose-200 hover:scale-105 transition-all">Confirmar</button>
+              </div>
+            </motion.div>
           </div>
         )}
       </AnimatePresence>
@@ -249,18 +273,17 @@ function BankForm({ onSave, onCancel }: any) {
       </div>
 
       <div className="grid grid-cols-2 gap-6">
-        {/* TIPO DE CONTA - NATIVE DROPDOWN */}
         <div className="space-y-2 relative">
           <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Tipo de Conta</label>
-          <div onClick={() => setIsOpenType(!isOpenType)} className="w-full p-4 bg-muted/40 border rounded-2xl cursor-pointer flex items-center justify-between hover:border-primary/40 transition-all">
-            <span className="font-bold text-sm">{ACCOUNT_TYPES.find(t => t.id === formData.type)?.label}</span>
-            <MoreVertical className="w-3 h-3 text-slate-400" />
+          <div onClick={() => setIsOpenType(!isOpenType)} className="w-full p-4 bg-muted/40 border rounded-2xl cursor-pointer flex items-center justify-between hover:border-primary/40 transition-all font-bold text-sm">
+            <span>{ACCOUNT_TYPES.find(t => t.id === formData.type)?.label}</span>
+            <ChevronDown className={cn("w-3 h-3 text-slate-400 transition-transform", isOpenType && "rotate-180")} />
           </div>
           <AnimatePresence>
             {isOpenType && (
               <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="absolute z-20 left-0 right-0 mt-1 bg-white border rounded-2xl shadow-2xl p-1 overflow-hidden">
                 {ACCOUNT_TYPES.map(opt => (
-                  <button key={opt.id} onClick={() => { setFormData({...formData, type: opt.id}); setIsOpenType(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center justify-between transition-all", formData.type === opt.id ? "bg-primary text-white" : "hover:bg-slate-50")}>
+                  <button key={opt.id} onClick={() => { setFormData({...formData, type: opt.id}); setIsOpenType(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all", formData.type === opt.id ? "bg-primary text-white" : "hover:bg-slate-50")}>
                     {opt.label}
                   </button>
                 ))}

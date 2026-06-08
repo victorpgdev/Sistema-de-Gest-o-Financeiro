@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, ChevronDown, Check, Search, Calendar as CalendarIcon } from 'lucide-react';
+import { X, ChevronDown, Check, Search, Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
@@ -37,11 +37,13 @@ export function TransactionModal({ onClose, onSave }: TransactionModalProps) {
   const [isOpenCategories, setIsOpenCategories] = useState(false);
   const [isOpenStatus, setIsOpenStatus] = useState(false);
   const [isOpenAccounts, setIsOpenAccounts] = useState(false);
+  const [isOpenCalendar, setIsOpenCalendar] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
   const categoryRef = useRef<HTMLDivElement>(null);
   const statusRef = useRef<HTMLDivElement>(null);
   const accountsRef = useRef<HTMLDivElement>(null);
+  const calendarRef = useRef<HTMLDivElement>(null);
 
   const [form, setForm] = useState({
     type: 'income',
@@ -67,12 +69,12 @@ export function TransactionModal({ onClose, onSave }: TransactionModalProps) {
     if (user) fetchAccounts();
   }, [user]);
 
-  // Click Outside logic para todos os dropdowns
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (categoryRef.current && !categoryRef.current.contains(event.target as Node)) setIsOpenCategories(false);
       if (statusRef.current && !statusRef.current.contains(event.target as Node)) setIsOpenStatus(false);
       if (accountsRef.current && !accountsRef.current.contains(event.target as Node)) setIsOpenAccounts(false);
+      if (calendarRef.current && !calendarRef.current.contains(event.target as Node)) setIsOpenCalendar(false);
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -81,8 +83,7 @@ export function TransactionModal({ onClose, onSave }: TransactionModalProps) {
   const handleClose = () => {
     setSearchTerm('');
     setIsOpenCategories(false);
-    setIsOpenStatus(false);
-    setIsOpenAccounts(false);
+    setIsOpenCalendar(false);
     onClose();
   };
 
@@ -98,28 +99,24 @@ export function TransactionModal({ onClose, onSave }: TransactionModalProps) {
         </div>
 
         <div className="space-y-4">
-          {/* Tipo: Receita / Despesa */}
           <div className="flex bg-muted p-1 rounded-xl border">
             <button onClick={() => { setForm({...form, type: 'income', category: ''}); setSearchTerm(''); }} className={cn("flex-1 py-2.5 rounded-lg font-black text-[10px] uppercase transition-all", form.type === 'income' ? "bg-emerald-500 text-white shadow-lg" : "text-muted-foreground")}>↑ Receita</button>
             <button onClick={() => { setForm({...form, type: 'expense', category: ''}); setSearchTerm(''); }} className={cn("flex-1 py-2.5 rounded-lg font-black text-[10px] uppercase transition-all", form.type === 'expense' ? "bg-rose-500 text-white shadow-lg" : "text-muted-foreground")}>↓ Despesa</button>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-             {/* STATUS CUSTOM DROP */}
              <div className="space-y-1 relative" ref={statusRef}>
                 <label className="text-[9px] font-black text-muted-foreground uppercase ml-1">Status</label>
-                <div onClick={() => setIsOpenStatus(!isOpenStatus)} className="w-full p-3 bg-muted border rounded-xl cursor-pointer flex items-center justify-between group hover:border-primary/40 transition-all">
-                  <span className="font-bold text-xs truncate">
-                    {STATUS_OPTIONS.find(s => s.id === form.status)?.label}
-                  </span>
+                <div onClick={() => setIsOpenStatus(!isOpenStatus)} className="w-full p-3 bg-muted border rounded-xl cursor-pointer flex items-center justify-between group hover:border-primary/40 transition-all font-bold text-xs">
+                  <span>{STATUS_OPTIONS.find(s => s.id === form.status)?.label}</span>
                   <ChevronDown className={cn("w-3 h-3 text-slate-400 transition-transform", isOpenStatus && "rotate-180")} />
                 </div>
                 <AnimatePresence>
                   {isOpenStatus && (
-                    <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="absolute z-[120] left-0 right-0 mt-1 bg-white border rounded-2xl shadow-2xl overflow-hidden p-1">
+                    <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="absolute z-[120] left-0 right-0 mt-1 bg-white border rounded-2xl shadow-2xl p-1 overflow-hidden">
                       {STATUS_OPTIONS.map(opt => (
-                        <button key={opt.id} onClick={() => { setForm({...form, status: opt.id}); setIsOpenStatus(false); }} className={cn("w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold flex items-center justify-between", form.status === opt.id ? "bg-slate-50 text-primary" : "hover:bg-slate-50")}>
-                          {opt.label} {form.status === opt.id && <Check className="w-3 h-3" />}
+                        <button key={opt.id} onClick={() => { setForm({...form, status: opt.id}); setIsOpenStatus(false); }} className={cn("w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold flex items-center justify-between", form.status === opt.id ? "bg-slate-50 text-blue-600" : "hover:bg-slate-50")}>
+                          {opt.label}
                         </button>
                       ))}
                     </motion.div>
@@ -127,11 +124,10 @@ export function TransactionModal({ onClose, onSave }: TransactionModalProps) {
                 </AnimatePresence>
              </div>
 
-             {/* CATEGORIA CUSTOM DROP */}
              <div className="space-y-1 relative" ref={categoryRef}>
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Categoria</label>
-                <div onClick={() => setIsOpenCategories(!isOpenCategories)} className="w-full p-3 bg-muted border rounded-xl cursor-pointer flex items-center justify-between group hover:border-primary/40 transition-all">
-                  <span className={cn("font-bold text-xs truncate", !form.category && "text-muted-foreground")}>{form.category || "Selecione..."}</span>
+                <div onClick={() => setIsOpenCategories(!isOpenCategories)} className="w-full p-3 bg-muted border rounded-xl cursor-pointer flex items-center justify-between group hover:border-primary/40 transition-all font-bold text-xs">
+                  <span className="truncate">{form.category || "Selecione..."}</span>
                   <ChevronDown className={cn("w-3 h-3 text-slate-400 transition-transform", isOpenCategories && "rotate-180")} />
                 </div>
                 <AnimatePresence>
@@ -143,10 +139,10 @@ export function TransactionModal({ onClose, onSave }: TransactionModalProps) {
                           <input className="w-full pl-7 pr-3 py-1.5 bg-white border rounded-lg text-[10px] font-bold outline-none" placeholder="Buscar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} autoFocus />
                         </div>
                       </div>
-                      <div className="max-h-[160px] overflow-y-auto p-1 space-y-0.5 scrollbar-thin">
+                      <div className="max-h-[160px] overflow-y-auto p-1 scrollbar-thin">
                         {filteredCategories.map(cat => (
-                          <button key={cat} onClick={() => { setForm({...form, category: cat}); setIsOpenCategories(false); }} className={cn("w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold flex items-center justify-between", form.category === cat ? "bg-primary text-white" : "hover:bg-slate-50")}>
-                            {cat} {form.category === cat && <Check className="w-3 h-3" />}
+                          <button key={cat} onClick={() => { setForm({...form, category: cat}); setIsOpenCategories(false); }} className={cn("w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold", form.category === cat ? "bg-primary text-white" : "hover:bg-slate-50")}>
+                            {cat}
                           </button>
                         ))}
                       </div>
@@ -158,38 +154,43 @@ export function TransactionModal({ onClose, onSave }: TransactionModalProps) {
 
           <div className="space-y-1">
             <label className="text-[9px] font-black text-muted-foreground uppercase ml-1">Descrição</label>
-            <input className="w-full p-3 bg-muted border rounded-xl outline-none font-bold text-xs focus:border-primary" placeholder="Ex: Mensalidade..." value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
+            <input className="w-full p-3 bg-muted border rounded-xl outline-none font-bold text-xs" placeholder="Ex: Mensalidade..." value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-[9px] font-black text-muted-foreground uppercase ml-1">Valor</label>
-              <input className="w-full p-3 bg-muted border rounded-xl outline-none font-bold text-xs focus:border-primary" type="number" placeholder="0,00" value={form.amount || ''} onChange={e => setForm({...form, amount: Number(e.target.value)})} />
+              <input className="w-full p-3 bg-muted border rounded-xl outline-none font-bold text-xs" type="number" placeholder="0,00" value={form.amount || ''} onChange={e => setForm({...form, amount: Number(e.target.value)})} />
             </div>
-            <div className="space-y-1">
+            {/* NOVO CALENDÁRIO NATIVO */}
+            <div className="space-y-1 relative" ref={calendarRef}>
               <label className="text-[9px] font-black text-muted-foreground uppercase ml-1">Vencimento</label>
-              <div className="relative">
-                <input className="w-full p-3 bg-muted border rounded-xl outline-none font-bold text-xs focus:border-primary appearance-none cursor-pointer" type="date" value={form.due_date} onChange={e => setForm({...form, due_date: e.target.value})} />
-                <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+              <div onClick={() => setIsOpenCalendar(!isOpenCalendar)} className="w-full p-3 bg-muted border rounded-xl cursor-pointer flex items-center justify-between font-bold text-xs hover:border-primary/40 transition-all">
+                <span>{new Date(form.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                <CalendarIcon className="w-3 h-3 text-slate-400" />
               </div>
+              <AnimatePresence>
+                {isOpenCalendar && (
+                  <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="absolute z-[130] right-0 mt-1 bg-white border rounded-[2rem] shadow-2xl p-4 min-w-[280px]">
+                    <CustomCalendar value={form.due_date} onChange={(d) => { setForm({...form, due_date: d}); setIsOpenCalendar(false); }} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
 
-          {/* BANCO CUSTOM DROP */}
           <div className="space-y-1 relative" ref={accountsRef}>
             <label className="text-[9px] font-black text-muted-foreground uppercase ml-1">Conta Bancária</label>
-            <div onClick={() => setIsOpenAccounts(!isOpenAccounts)} className="w-full p-3 bg-muted border rounded-xl cursor-pointer flex items-center justify-between group hover:border-primary/40 transition-all">
-              <span className="font-bold text-xs truncate">
-                {accounts.find(a => a.id === form.bank_account_id)?.bank_name || "Selecione a conta..."}
-              </span>
+            <div onClick={() => setIsOpenAccounts(!isOpenAccounts)} className="w-full p-3 bg-muted border rounded-xl cursor-pointer flex items-center justify-between font-bold text-xs hover:border-primary/40 transition-all">
+              <span>{accounts.find(a => a.id === form.bank_account_id)?.bank_name || "Selecione..."}</span>
               <ChevronDown className={cn("w-3 h-3 text-slate-400 transition-transform", isOpenAccounts && "rotate-180")} />
             </div>
             <AnimatePresence>
               {isOpenAccounts && (
-                <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="absolute z-[120] left-0 right-0 mt-1 bg-white border rounded-2xl shadow-2xl overflow-hidden p-1">
+                <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="absolute z-[120] left-0 right-0 mt-1 bg-white border rounded-2xl shadow-2xl p-1">
                   {accounts.map(acc => (
-                    <button key={acc.id} onClick={() => { setForm({...form, bank_account_id: acc.id}); setIsOpenAccounts(false); }} className={cn("w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold flex items-center justify-between", form.bank_account_id === acc.id ? "bg-slate-50 text-primary" : "hover:bg-slate-50")}>
-                      {acc.bank_name} {form.bank_account_id === acc.id && <Check className="w-3 h-3" />}
+                    <button key={acc.id} onClick={() => { setForm({...form, bank_account_id: acc.id}); setIsOpenAccounts(false); }} className={cn("w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold truncate", form.bank_account_id === acc.id ? "bg-slate-50 text-blue-600" : "hover:bg-slate-50")}>
+                      {acc.bank_name}
                     </button>
                   ))}
                 </motion.div>
@@ -205,11 +206,52 @@ export function TransactionModal({ onClose, onSave }: TransactionModalProps) {
           </div>
         </div>
 
-        <div className="flex gap-3 mt-6 pt-6 border-t font-black">
-          <button onClick={handleClose} className="flex-1 py-3 border rounded-xl text-[9px] uppercase hover:bg-muted transition-all">Cancelar</button>
-          <button onClick={() => onSave(form)} className="flex-1 py-3 bg-primary text-white rounded-xl text-[9px] uppercase shadow-lg shadow-primary/20 hover:scale-105 transition-all">Salvar Lançamento</button>
+        <div className="flex gap-3 mt-6 pt-6 border-t">
+          <button onClick={handleClose} className="flex-1 py-3 border rounded-xl text-[9px] font-black uppercase hover:bg-muted transition-all">Cancelar</button>
+          <button onClick={() => onSave(form)} className="flex-1 py-3 bg-primary text-white rounded-xl text-[9px] font-black uppercase shadow-lg shadow-primary/20 hover:scale-105 transition-all">Salvar Lançamento</button>
         </div>
       </motion.div>
+    </div>
+  );
+}
+
+function CustomCalendar({ value, onChange }: { value: string, onChange: (d: string) => void }) {
+  const [curr, setCurr] = useState(new Date(value + 'T12:00:00'));
+  const month = curr.getMonth();
+  const year = curr.getFullYear();
+  
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDay = new Date(year, month, 1).getDay();
+  const days = [];
+  for (let i = 0; i < firstDay; i++) days.push(null);
+  for (let i = 1; i <= daysInMonth; i++) days.push(i);
+
+  const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between px-2">
+        <button onClick={() => setCurr(new Date(year, month - 1, 1))} className="p-1 hover:bg-slate-100 rounded-lg"><ChevronLeft className="w-4 h-4" /></button>
+        <span className="text-xs font-black uppercase tracking-widest">{monthNames[month]} {year}</span>
+        <button onClick={() => setCurr(new Date(year, month + 1, 1))} className="p-1 hover:bg-slate-100 rounded-lg"><ChevronRight className="w-4 h-4" /></button>
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {['D','S','T','Q','Q','S','S'].map(d => <div key={d} className="text-[8px] font-black text-slate-400 text-center">{d}</div>)}
+        {days.map((d, i) => {
+          if (d === null) return <div key={i} />;
+          const dStr = `${year}-${String(month + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+          const isSelected = dStr === value;
+          return (
+            <button 
+              key={i} 
+              onClick={() => onChange(dStr)}
+              className={cn("text-[10px] font-bold p-2 rounded-lg transition-all", isSelected ? "bg-primary text-white" : "hover:bg-slate-50 text-slate-600")}
+            >
+              {d}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

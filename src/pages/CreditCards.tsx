@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { 
   Plus, Search, CreditCard as CardIcon, MoreVertical, 
   Trash2, CheckCircle2, X, Loader2, Landmark, 
-  AlertCircle, Calendar, Shield
+  AlertCircle, Calendar, Shield, ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
@@ -20,7 +20,6 @@ interface CreditCard {
   current_spent: number;
   closing_day: number;
   due_day: number;
-  card_number?: string;
 }
 
 export function CreditCards() {
@@ -28,6 +27,7 @@ export function CreditCards() {
   const [cards, setCards] = useState<CreditCard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<CreditCard | null>(null);
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
   const fetchCards = async () => {
@@ -65,14 +65,12 @@ export function CreditCards() {
       return;
     }
 
-    // HIGIENIZAÇÃO DE DADOS (Anti-Injeção)
     const sanitizedData = {
       ...formData,
       card_name: security.sanitize(formData.card_name),
       bank_name: security.sanitize(formData.bank_name)
     };
 
-    // VERIFICAÇÃO DE LIMITE DE PLANO
     const userPlan = tenant?.plan || 'Basic';
     const canAdd = await checkPlanLimit(user.tenant_id, userPlan, 'creditCards');
     
@@ -90,11 +88,10 @@ export function CreditCards() {
       const { error } = await supabase.from('credit_cards').insert([{
         ...sanitizedData,
         tenant_id: user.tenant_id
-        // Nota: Número do cartão é salvo ofuscado por segurança se necessário
       }]);
 
       if (error) {
-        setNotification({ type: 'error', message: `Erro: ${error.message}` });
+        setNotification({ type: 'error', message: `Erro ao salvar: ${error.message}` });
       } else {
         await logAuditAction(user.tenant_id, user.id, 'CREATE_CREDIT_CARD', { card: sanitizedData.card_name });
         setNotification({ type: 'success', message: 'Cartão cadastrado com sucesso!' });
@@ -107,11 +104,18 @@ export function CreditCards() {
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from('credit_cards').delete().eq('id', id);
-    if (!error) {
-       await logAuditAction(user?.tenant_id!, user?.id!, 'DELETE_CREDIT_CARD', { id });
-       setNotification({ type: 'success', message: 'Cartão removido.' });
-       fetchCards();
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.from('credit_cards').delete().eq('id', id);
+      if (error) throw error;
+      await logAuditAction(user?.tenant_id!, user?.id!, 'DELETE_CREDIT_CARD', { id });
+      setNotification({ type: 'success', message: '🔄 Cartão removido com sucesso.' });
+      fetchCards();
+      setConfirmDelete(null);
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -122,7 +126,7 @@ export function CreditCards() {
           <motion.div 
             initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
             className={cn(
-              "fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border backdrop-blur-md text-white font-bold text-sm",
+              "fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border backdrop-blur-md text-white font-bold text-sm",
               notification.type === 'success' ? "bg-emerald-500/90 border-emerald-400" : "bg-rose-500/90 border-rose-400"
             )}
           >
@@ -166,7 +170,7 @@ export function CreditCards() {
               <div className="w-14 h-14 bg-slate-900 text-white rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
                 <CardIcon className="w-7 h-7" />
               </div>
-              <button onClick={() => handleDelete(card.id)} className="p-3 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-xl transition-all opacity-0 group-hover:opacity-100"><Trash2 className="w-5 h-5" /></button>
+              <button onClick={() => setConfirmDelete(card)} className="p-3 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-xl transition-all opacity-0 group-hover:opacity-100"><Trash2 className="w-5 h-5" /></button>
             </div>
             
             <div className="space-y-1 relative mb-6">
@@ -195,7 +199,6 @@ export function CreditCards() {
                </div>
                <div className="flex justify-between text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">
                   <span>Vencimento dia {card.due_day}</span>
-                  <span className="font-mono">{security.maskFinancialData('1234')}</span>
                </div>
             </div>
           </motion.div>
@@ -212,6 +215,24 @@ export function CreditCards() {
                 </div>
                 <CardForm onSave={handleSave} onCancel={() => setShowModal(false)} />
              </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {confirmDelete && (
+          <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white border rounded-[2.5rem] p-10 w-full max-w-sm shadow-2xl text-center">
+              <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Trash2 className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-800 mb-2">Excluir Cartão?</h3>
+              <p className="text-sm text-slate-500 mb-8">Deseja remover o cartão "{confirmDelete.card_name}"? Esta ação é irreversível.</p>
+              <div className="flex gap-3">
+                <button onClick={() => setConfirmDelete(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold text-xs uppercase hover:bg-slate-200 transition-all">Cancelar</button>
+                <button onClick={() => handleDelete(confirmDelete.id)} className="flex-1 py-3 bg-rose-500 text-white rounded-xl font-bold text-xs uppercase shadow-lg shadow-rose-200 hover:scale-105 transition-all">Confirmar</button>
+              </div>
+            </motion.div>
           </div>
         )}
       </AnimatePresence>
