@@ -30,10 +30,14 @@ export function TermsConsent({ user, onAccept }: { user: any, onAccept: () => vo
         description: 'Usuário aceitou os Termos de Uso e Política de Privacidade (LGPD).'
       });
 
+      // Salvar no cache local para não perguntar novamente
+      localStorage.setItem(`lgpd_consent_${user.id}`, 'true');
+
       onAccept();
     } catch (err) {
       console.error(err);
-      onAccept(); // Fallback para não bloquear o usuário em caso de erro de rede
+      localStorage.setItem(`lgpd_consent_${user.id}`, 'true'); // Salva no local mesmo com erro de rede para não travar o user
+      onAccept();
     } finally {
       setIsLoading(false);
     }
