@@ -51,10 +51,15 @@ export const useAuthStore = create<AuthState>((set) => ({
           email: 'victorhugoperea89@gmail.com',
           name: 'Victor Hugo (MASTER)',
           role: 'MASTER',
-          tenant_id: null,
+          tenant_id: '00000000-0000-0000-0000-000000000000', // Default MASTER Tenant
           status: 'active'
         };
-        set({ user: masterUser, tenant: { id: 'master', name: 'ADMIN', plan: 'Enterprise', status: 'active' }, isAuthenticated: true, isLoading: false });
+        set({ 
+          user: masterUser, 
+          tenant: { id: '00000000-0000-0000-0000-000000000000', name: 'ADMIN CORPORATIVO', plan: 'Enterprise', status: 'active' }, 
+          isAuthenticated: true, 
+          isLoading: false 
+        });
         return;
       }
 

@@ -121,6 +121,12 @@ export function Transactions() {
           const newBalance = formData.type === 'income' ? Number(bank.balance) + Number(formData.amount) : Number(bank.balance) - Number(formData.amount);
           await supabase.from('bank_accounts').update({ balance: newBalance }).eq('id', formData.bank_account_id);
         }
+      } else if (formData.status === 'paid' && formData.credit_card_id) {
+        const { data: card } = await supabase.from('credit_cards').select('current_spent').eq('id', formData.credit_card_id).single();
+        if (card) {
+          const newSpent = Number(card.current_spent) + Number(formData.amount);
+          await supabase.from('credit_cards').update({ current_spent: newSpent }).eq('id', formData.credit_card_id);
+        }
       }
 
       await logActivity({
