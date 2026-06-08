@@ -122,6 +122,8 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
       }
 
       onComplete();
+      // Forçamos um refresh na página para garantir que todos os estados carreguem os novos dados salvos
+      window.location.reload(); 
     } catch (err: any) {
       console.error("Erro crítico no onboarding:", err);
       setErrorMsg("Ocorreu um erro ao salvar seus dados. Por favor, tente novamente.");
