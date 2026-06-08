@@ -15,6 +15,7 @@ interface User {
   role: 'MASTER' | 'OWNER' | 'FINANCE' | 'VIEWER';
   tenant_id: string | null;
   status: 'active' | 'banned';
+  lgpd_accepted?: boolean;
 }
 
 interface AuthState {
@@ -51,12 +52,14 @@ export const useAuthStore = create<AuthState>((set) => ({
           email: 'victorhugoperea89@gmail.com',
           name: 'Victor Hugo (MASTER)',
           role: 'MASTER',
-          tenant_id: '00000000-0000-0000-0000-000000000000', // Default MASTER Tenant
-          status: 'active'
+          tenant_id: 'd9b04886-4e5a-40a2-9214-539050d51084',
+          status: 'active',
+          lgpd_accepted: true
         };
+        localStorage.setItem('pg_master_session', 'true');
         set({ 
           user: masterUser, 
-          tenant: { id: '00000000-0000-0000-0000-000000000000', name: 'ADMIN CORPORATIVO', plan: 'Enterprise', status: 'active' }, 
+          tenant: { id: 'd9b04886-4e5a-40a2-9214-539050d51084', name: 'ADMIN CORPORATIVO', plan: 'Enterprise', status: 'active' }, 
           isAuthenticated: true, 
           isLoading: false 
         });
@@ -74,15 +77,16 @@ export const useAuthStore = create<AuthState>((set) => ({
           .single();
 
         if (profile) {
-           const userObj: User = {
-            id: profile.id,
-            email: profile.email,
-            name: profile.name,
-            role: profile.role,
-            tenant_id: profile.tenant_id,
-            status: profile.status || 'active'
-          };
-          set({ user: userObj, tenant: profile.tenants as any, isAuthenticated: true, isLoading: false });
+            const userObj: User = {
+              id: profile.id,
+              email: profile.email,
+              name: profile.name,
+              role: profile.role,
+              tenant_id: profile.tenant_id,
+              status: profile.status || 'active',
+              lgpd_accepted: profile.lgpd_accepted
+            };
+            set({ user: userObj, tenant: profile.tenants as any, isAuthenticated: true, isLoading: false });
         } else {
            set({ isAuthenticated: true, user: { id: data.user.id, email: data.user.email!, name: 'Usuário', role: 'OWNER', tenant_id: null, status: 'active' }, isLoading: false });
         }
@@ -96,12 +100,14 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
+    localStorage.removeItem('pg_master_session');
     await supabase.auth.signOut();
     set({ user: null, tenant: null, isAuthenticated: false, isLoading: false });
   },
 
   initialize: async () => {
     try {
+      // 1. Verificar se existe uma sessão Supabase real
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
@@ -119,18 +125,39 @@ export const useAuthStore = create<AuthState>((set) => ({
               name: profile.name,
               role: profile.role,
               tenant_id: profile.tenant_id,
-              status: profile.status || 'active'
+              status: profile.status || 'active',
+              lgpd_accepted: profile.lgpd_accepted
             };
             set({ isAuthenticated: true, user: userObj, tenant: profile.tenants as any });
-          } else {
-            set({ isAuthenticated: true, user: { id: session.user.id, email: session.user.email!, name: 'Usuário', role: 'OWNER', tenant_id: null, status: 'active' } });
+            return;
           }
         } catch (e) {
-          set({ isAuthenticated: true, user: { id: session.user.id, email: session.user.email!, name: 'Usuário', role: 'OWNER', tenant_id: null, status: 'active' } });
+          console.error("Auth init error:", e);
         }
-      } else {
-        set({ isAuthenticated: false, user: null, tenant: null });
       }
+
+      // 2. Fallback para Master Bypass persistido
+      const masterSession = localStorage.getItem('pg_master_session');
+      if (masterSession === 'true') {
+        const masterUser: User = {
+          id: '235bacfd-ac10-4ab0-88ee-b50ada2bda4d',
+          email: 'victorhugoperea89@gmail.com',
+          name: 'Victor Hugo (MASTER)',
+          role: 'MASTER',
+          tenant_id: 'd9b04886-4e5a-40a2-9214-539050d51084',
+          status: 'active',
+          lgpd_accepted: true
+        };
+        set({ 
+          user: masterUser, 
+          tenant: { id: 'd9b04886-4e5a-40a2-9214-539050d51084', name: 'ADMIN CORPORATIVO', plan: 'Enterprise', status: 'active' }, 
+          isAuthenticated: true,
+          isLoading: false
+        });
+        return;
+      }
+
+      set({ isAuthenticated: false, user: null, tenant: null });
     } finally {
       set({ isLoading: false });
     }

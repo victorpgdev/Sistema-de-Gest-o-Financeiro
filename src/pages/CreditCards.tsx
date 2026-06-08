@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { 
-  Plus, Search, CreditCard as CardIcon, MoreVertical, 
+  Plus, Search, Wallet as CardIcon, MoreVertical, 
   Trash2, CheckCircle2, X, Loader2, Landmark, 
   AlertCircle, Calendar, Shield, ChevronDown
 } from 'lucide-react';
@@ -138,8 +138,8 @@ export function CreditCards() {
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-800">Cartões de Crédito</h1>
-          <p className="text-sm text-slate-500 font-medium">Gestão de limites e faturas dos seus cartões.</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-800">Meus Cartões</h1>
+          <p className="text-sm text-slate-500 font-medium">Gestão de limites e faturas dos seus cartões de crédito.</p>
         </div>
         <button 
           onClick={() => setShowModal(true)}

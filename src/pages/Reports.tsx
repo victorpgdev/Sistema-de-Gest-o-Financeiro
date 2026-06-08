@@ -66,7 +66,20 @@ export function Reports() {
           >
             <Printer className="w-5 h-5 text-slate-500" /> Imprimir Relatório
           </button>
-          <button className="px-6 py-3 bg-primary text-white rounded-2xl font-bold shadow-xl shadow-primary/20 flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-all">
+          <button 
+            onClick={() => {
+              const headers = ['Categoria', 'Valor Total'];
+              const rows = data.categories.map((c: any) => [c.name, c.value]);
+              const csv = [headers, ...rows].map(r => r.join(';')).join('\n');
+              const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = `RELATORIO_FINANCEIRO_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.csv`;
+              link.click();
+            }}
+            className="px-6 py-3 bg-primary text-white rounded-2xl font-bold shadow-xl shadow-primary/20 flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-all"
+          >
             <Download className="w-5 h-5" /> Exportar Dados
           </button>
         </div>

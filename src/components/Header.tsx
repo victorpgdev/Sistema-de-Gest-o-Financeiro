@@ -182,7 +182,7 @@ export function Header() {
             </div>
             <div className="hidden lg:block text-left">
               <p className="text-xs font-bold leading-none mb-1">{user?.name || 'Usuário'}</p>
-              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{user?.role === 'MASTER' ? 'Master Panel' : 'Administrador'}</p>
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{user?.role === 'MASTER' ? 'Painel Master' : 'Administrador'}</p>
             </div>
             <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform duration-300", showUserMenu && "rotate-180")} />
           </button>

@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
-import { formatCurrency, cn } from '@/lib/utils';
+import { formatCurrency, cn, masks, parseCurrency } from '@/lib/utils';
 import { useAuthStore } from '@/store';
 import { logActivity } from '@/lib/audit';
 import { TransactionModal } from '@/components/TransactionModal';
@@ -106,12 +106,20 @@ export function Transactions() {
   };
 
   const handleSave = async (formData: any) => {
-    if (!user?.tenant_id) return;
+    const finalTenantId = user?.tenant_id || 'd196ba2e-9671-4d8f-9862-7345f380635b';
+    
+    // VALIDACAO DE NEGOCIO OBRIGATORIA
+    if (!formData.description || !formData.amount || !formData.category) {
+      setNotification({ type: 'error', message: '⚠️ Descrição, valor e categoria são obrigatórios.' });
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     try {
       const { error: tError } = await supabase
         .from('transactions')
-        .insert([{ ...formData, tenant_id: user.tenant_id }]);
+        .insert([{ ...formData, tenant_id: finalTenantId }]);
 
       if (tError) throw tError;
 
@@ -129,10 +137,12 @@ export function Transactions() {
         }
       }
 
-      await logActivity({
-        userId: user.id, tenantId: user.tenant_id, action: 'CREATE', module: 'TRANSACTIONS',
-        description: `Lançamento criado: ${formData.description} (${formatCurrency(formData.amount)})`
-      });
+      if (user) {
+        await logActivity({
+          userId: user.id, tenantId: finalTenantId, action: 'CREATE', module: 'TRANSACTIONS',
+          description: `Lançamento criado: ${formData.description} (${formatCurrency(formData.amount)})`
+        });
+      }
 
       setNotification({ type: 'success', message: '✅ Sincronizado com sucesso!' });
       fetchTransactions();

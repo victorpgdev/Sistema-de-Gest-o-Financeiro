@@ -8,6 +8,7 @@ import {
   Landmark, CreditCard, Tag, Sparkles,
   BarChart3, Plus, X, AlertCircle
 } from 'lucide-react';
+import { masks, parseCurrency } from '@/lib/utils';
 
 // ─── Dados ────────────────────────────────────────────────────────────────────
 
@@ -227,7 +228,13 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
                         </div>
                         <div className="space-y-1">
                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Saldo Atual (R$)</label>
-                          <input type="number" value={bank.balance} onChange={e => setBank({...bank, balance: e.target.value})} placeholder="0,00" className="w-full p-3.5 bg-slate-50 border rounded-2xl outline-none font-bold text-sm" />
+                          <input className="w-full p-3.5 bg-slate-50 border rounded-2xl outline-none font-bold text-sm" placeholder="R$ 0,00" 
+                            onChange={e => { 
+                              const m = masks.currency(e.target.value); 
+                              e.target.value = m; 
+                              setBank({...bank, balance: String(parseCurrency(m))}); 
+                            }} 
+                          />
                         </div>
                       </motion.div>
                     )}
@@ -245,7 +252,13 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
                       </div>
                       <div className="space-y-1">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Limite (R$)</label>
-                        <input type="number" value={card.limit} onChange={e => setCard({...card, limit: e.target.value})} placeholder="5000,00" className="w-full p-4 bg-slate-50 border rounded-2xl outline-none font-bold text-sm" />
+                        <input className="w-full p-4 bg-slate-50 border rounded-2xl outline-none font-bold text-sm" placeholder="R$ 0,00" 
+                          onChange={e => { 
+                            const m = masks.currency(e.target.value); 
+                            e.target.value = m; 
+                            setCard({...card, limit: String(parseCurrency(m))}); 
+                          }} 
+                        />
                       </div>
                       <div className="space-y-1">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Vencimento (Dia)</label>

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { X, ChevronDown, Check, Search, Calendar as CalendarIcon, ChevronLeft, ChevronRight, CreditCard, Landmark } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
-import { cn } from '@/lib/utils';
+import { cn, masks, parseCurrency } from '@/lib/utils';
 import { useAuthStore } from '@/store';
 
 interface TransactionModalProps {
@@ -42,6 +42,7 @@ export function TransactionModal({ onClose, onSave }: TransactionModalProps) {
   const [isOpenPayment, setIsOpenPayment] = useState(false);
   const [isOpenCalendar, setIsOpenCalendar] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [displayAmount, setDisplayAmount] = useState('R$ 0,00');
   
   const categoryRef = useRef<HTMLDivElement>(null);
   const statusRef = useRef<HTMLDivElement>(null);
@@ -180,7 +181,7 @@ export function TransactionModal({ onClose, onSave }: TransactionModalProps) {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-[9px] font-black text-muted-foreground uppercase ml-1">Valor</label>
-              <input className="w-full p-3 bg-muted border rounded-xl outline-none font-bold text-xs" type="number" placeholder="0,00" value={form.amount || ''} onChange={e => setForm({...form, amount: Number(e.target.value)})} />
+              <input className="w-full p-3 bg-muted border rounded-xl outline-none font-bold text-xs" placeholder="R$ 0,00" value={displayAmount} onChange={e => { const m = masks.currency(e.target.value); setDisplayAmount(m); setForm({...form, amount: parseCurrency(m)}); }} />
             </div>
             <div className="space-y-1 relative" ref={calendarRef}>
               <label className="text-[9px] font-black text-muted-foreground uppercase ml-1">Vencimento</label>
@@ -217,7 +218,7 @@ export function TransactionModal({ onClose, onSave }: TransactionModalProps) {
               {isOpenPayment && (
                 <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="absolute z-[120] left-0 right-0 mt-1 bg-white border rounded-2xl shadow-2xl p-1 overflow-hidden">
                   {/* SEÇÃO CONTAS */}
-                  {accounts.length > 0 && <div className="px-3 py-1.5 text-[8px] font-black text-slate-400 uppercase tracking-widest border-b">🏦 Contas Bancárias</div>}
+                  {accounts.length > 0 && <div className="px-3 py-1.5 text-[8px] font-black text-slate-400 uppercase tracking-widest border-b">🏦 Minhas Contas</div>}
                   {accounts.map(acc => (
                     <button key={acc.id} onClick={() => { setPaymentMethod('account'); setForm({...form, bank_account_id: acc.id}); setIsOpenPayment(false); }} className={cn("w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold flex items-center justify-between", paymentMethod === 'account' && form.bank_account_id === acc.id ? "bg-slate-50 text-blue-600" : "hover:bg-slate-50")}>
                       {acc.bank_name}
@@ -225,7 +226,7 @@ export function TransactionModal({ onClose, onSave }: TransactionModalProps) {
                   ))}
                   
                   {/* SEÇÃO CARTÕES (Somente se for Despesa) */}
-                  {form.type === 'expense' && cards.length > 0 && <div className="px-3 py-1.5 text-[8px] font-black text-slate-400 uppercase tracking-widest border-b mt-2">💳 Cartões de Crédito</div>}
+                  {form.type === 'expense' && cards.length > 0 && <div className="px-3 py-1.5 text-[8px] font-black text-slate-400 uppercase tracking-widest border-b mt-2">💳 Meus Cartões</div>}
                   {form.type === 'expense' && cards.map(card => (
                     <button key={card.id} onClick={() => { setPaymentMethod('card'); setForm({...form, credit_card_id: card.id}); setIsOpenPayment(false); }} className={cn("w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold flex items-center justify-between", paymentMethod === 'card' && form.credit_card_id === card.id ? "bg-slate-50 text-blue-600" : "hover:bg-slate-50")}>
                       {card.card_name}

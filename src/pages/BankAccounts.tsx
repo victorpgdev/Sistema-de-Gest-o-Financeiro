@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { 
   Plus, Search, Wallet, MoreVertical, Trash2, 
   CheckCircle2, X, Loader2, Landmark, AlertCircle,
-  Building2, Globe, Shield
+  Building2, Globe, Shield, ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
-import { formatCurrency, cn } from '@/lib/utils';
+import { formatCurrency, cn, masks, parseCurrency } from '@/lib/utils';
 import { useAuthStore } from '@/store';
 import { GLOBAL_BANKS } from '@/lib/banks';
 import { checkPlanLimit, logAuditAction, PLAN_LIMITS } from '@/lib/limits';
@@ -237,13 +237,30 @@ const ACCOUNT_TYPES = [
   { id: 'checking', label: '🏦 Conta Corrente' },
   { id: 'savings', label: '💰 Poupança' },
   { id: 'investment', label: '📈 Investimento' },
-  { id: 'cash', label: '💵 Caixa / Dinheiro' }
+  { id: 'cash', label: '💵 Caixa / Espécie' }
 ];
 
 function BankForm({ onSave, onCancel }: any) {
   const [formData, setFormData] = useState({ bank_name: '', type: 'checking', balance: 0, agency: '', account_number: '' });
+  const [displayBalance, setDisplayBalance] = useState('R$ 0,00');
   const [bankSuggestions, setBankSuggestions] = useState<any[]>([]);
   const [isOpenType, setIsOpenType] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.bank_name) newErrors.bank_name = 'Selecione ou digite um banco';
+    if (!formData.agency) newErrors.agency = 'Agência é obrigatória';
+    if (!formData.account_number) newErrors.account_number = 'Número da conta é obrigatório';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSave = () => {
+    if (validate()) {
+       onSave(formData);
+    }
+  };
 
   const handleBankSearch = (val: string) => {
     setFormData({...formData, bank_name: val});
@@ -260,9 +277,10 @@ function BankForm({ onSave, onCancel }: any) {
       <div className="space-y-2 relative">
         <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Instituição Financeira</label>
         <div className="relative">
-          <input className="w-full p-4 bg-muted/40 border border-transparent focus:border-primary rounded-2xl outline-none font-bold" placeholder="Filtre pelo nome do banco..." value={formData.bank_name} onChange={e => handleBankSearch(e.target.value)} />
+          <input className={cn("w-full p-4 bg-muted/40 border-2 border-transparent rounded-2xl outline-none font-bold transition-all", errors.bank_name ? "border-rose-300 bg-rose-50" : "focus:border-primary")} placeholder="Filtre pelo nome do banco..." value={formData.bank_name} onChange={e => handleBankSearch(e.target.value)} />
           <Landmark className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground opacity-20" />
         </div>
+        {errors.bank_name && <p className="text-[10px] text-rose-500 font-bold uppercase ml-1">{errors.bank_name}</p>}
         <AnimatePresence>
           {bankSuggestions.length > 0 && (
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute z-10 w-full mt-2 bg-card border rounded-2xl shadow-2xl overflow-hidden max-h-48 overflow-y-auto">
@@ -291,17 +309,17 @@ function BankForm({ onSave, onCancel }: any) {
             )}
           </AnimatePresence>
         </div>
-        <div className="space-y-2"><label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Saldo Inicial (R$)</label><input type="number" className="w-full p-4 bg-muted/40 border rounded-2xl outline-none font-bold" value={formData.balance || ''} onChange={e => setFormData({...formData, balance: Number(e.target.value)})} /></div>
+        <div className="space-y-2"><label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Saldo Inicial (R$)</label><input className="w-full p-4 bg-muted/40 border rounded-2xl outline-none font-bold" placeholder="R$ 0,00" value={displayBalance} onChange={e => { const masked = masks.currency(e.target.value); setDisplayBalance(masked); setFormData({...formData, balance: parseCurrency(masked)}); }} /></div>
       </div>
 
       <div className="grid grid-cols-2 gap-6">
-        <div className="space-y-2"><label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Agência</label><input className="w-full p-4 bg-muted/40 border rounded-2xl outline-none font-bold" placeholder="0001" value={formData.agency} onChange={e => setFormData({...formData, agency: e.target.value})} /></div>
-        <div className="space-y-2"><label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Conta + Dígito</label><input className="w-full p-4 bg-muted/40 border rounded-2xl outline-none font-bold" placeholder="12345-6" value={formData.account_number} onChange={e => setFormData({...formData, account_number: e.target.value})} /></div>
+        <div className="space-y-2"><label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Agência</label><input className={cn("w-full p-4 bg-muted/40 border-2 border-transparent rounded-2xl outline-none font-bold transition-all", errors.agency ? "border-rose-300 bg-rose-50" : "focus:border-primary")} placeholder="0001" value={formData.agency} onChange={e => setFormData({...formData, agency: e.target.value})} /></div>
+        <div className="space-y-2"><label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Conta + Dígito</label><input className={cn("w-full p-4 bg-muted/40 border-2 border-transparent rounded-2xl outline-none font-bold transition-all", errors.account_number ? "border-rose-300 bg-rose-50" : "focus:border-primary")} placeholder="12345-6" value={formData.account_number} onChange={e => setFormData({...formData, account_number: e.target.value})} /></div>
       </div>
 
       <div className="flex gap-4 mt-8 pt-6 border-t font-semibold">
           <button onClick={onCancel} className="flex-1 py-4 border rounded-2xl hover:bg-muted transition-all uppercase text-xs">Cancelar</button>
-          <button onClick={() => onSave(formData)} className="flex-1 py-4 bg-primary text-white rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all uppercase text-xs">Salvar Conta</button>
+          <button onClick={handleSave} className="flex-1 py-4 bg-primary text-white rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all uppercase text-xs">Salvar Conta</button>
       </div>
     </div>
   );

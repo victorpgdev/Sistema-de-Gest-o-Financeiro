@@ -17,13 +17,13 @@ import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 
 const MENU_ITEMS = [
-  { icon: LayoutDashboard, label: 'Visão Geral', path: '/' },
+  { icon: LayoutDashboard, label: 'Painel Geral', path: '/' },
   { icon: BarChart3, label: 'Fluxo de Caixa', path: '/cash-flow' },
   { icon: ArrowUpRight, label: 'Movimentações', path: '/transactions' },
-  { icon: Wallet, label: 'Contas e Bancos', path: '/accounts' },
-  { icon: CreditCard, label: 'Cartões de Crédito', path: '/cards' },
-  { icon: Users, label: 'Minha Equipe', path: '/team' },
-  { icon: GraduationCap, label: 'PG Academy', path: '/help' },
+  { icon: Wallet, label: 'Contas Bancárias', path: '/accounts' },
+  { icon: CreditCard, label: 'Meus Cartões', path: '/cards' },
+  { icon: Users, label: 'Equipe e Acessos', path: '/team' },
+  { icon: GraduationCap, label: 'Academia PG', path: '/help' },
   { icon: ShieldCheck, label: 'Segurança e LGPD', path: '/security' },
 ];
 

@@ -52,20 +52,8 @@ function App() {
   useEffect(() => {
     if (user && user.role !== 'MASTER') {
       // 1. Verifica Consentimento LGPD (Cache Local primeiro para velocidade)
-      const localConsent = localStorage.getItem(`lgpd_consent_${user.id}`);
-      if (localConsent === 'true') {
-        setShowConsent(false);
-      } else {
-        supabase.from('lgpd_consentimentos').select('id').eq('usuario_id', user.id).single()
-          .then(({ data: consent }) => {
-            if (consent) {
-              localStorage.setItem(`lgpd_consent_${user.id}`, 'true');
-              setShowConsent(false);
-            } else {
-              setShowConsent(true);
-            }
-          });
-      }
+      const hasAcceptedLGPD = localStorage.getItem('pg_lgpd_consent') === 'true' || user?.lgpd_accepted;
+      setShowConsent(!hasAcceptedLGPD);
 
       // 2. Verifica Onboarding
       supabase.from('profiles').select('onboarding_completed').eq('id', user.id).single()

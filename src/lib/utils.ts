@@ -34,3 +34,16 @@ export const getStatusColor = (status: string) => {
       return 'text-slate-500 bg-slate-500/10';
   }
 };
+export const masks = {
+  cpf: (v: string) => v.replace(/\D/g, '').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2').slice(0, 14),
+  cnpj: (v: string) => v.replace(/\D/g, '').replace(/(\d{2})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$3').replace(/(\d{3})(\d)/, '$1/$2').replace(/(\d{4})(\d{1,2})$/, '$1-$2').slice(0, 18),
+  phone: (v: string) => v.replace(/\D/g, '').replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2').slice(0, 15),
+  currency: (v: string) => {
+    const val = v.replace(/\D/g, '');
+    return (Number(val) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  }
+};
+
+export function parseCurrency(v: string): number {
+  return Number(v.replace(/\D/g, '')) / 100;
+}
