@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store';
 import { cn } from '@/lib/utils';
+import { logActivity } from '@/lib/audit';
 
 export function Settings() {
   const { user, initialize } = useAuthStore();
@@ -109,6 +110,16 @@ export function Settings() {
       }
 
       setNotification({ type: 'success', message: 'Perfil e empresa atualizados! ✅ Painel Master reflete a mudança.' });
+      
+      // LOG DE AUDITORIA
+      await logActivity({
+        userId: user!.id,
+        tenantId: user!.tenant_id!,
+        action: 'UPDATE',
+        module: 'SYSTEM',
+        description: `Configurações de perfil/empresa alteradas por ${user?.name}`
+      });
+
       await initialize();
     } catch (err: any) {
       setNotification({ type: 'error', message: `Erro ao atualizar: ${err.message}` });

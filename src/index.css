@@ -58,29 +58,59 @@
   border-color: var(--color-border);
 }
 
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Impede o scroll elástico no Mac */
+  overscroll-behavior: none;
+}
+
 body {
   background-color: var(--color-background);
   color: var(--color-foreground);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   font-feature-settings: "rlig" 1, "calt" 1;
+  /* Impede seleção de texto global para parecer APP */
+  user-select: none;
+  -webkit-user-select: none;
+  overflow: hidden;
+}
+
+/* Permitir seleção apenas em inputs e textos de conteúdo */
+input, textarea, [contenteditable="true"] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Remove o anel de foco padrão do navegador */
+:focus {
+  outline: none !important;
+}
+
+/* Impede arrastar imagens */
+img {
+  -webkit-user-drag: none;
+  user-drag: none;
 }
 
 /* ======================== */
-/* CUSTOM SCROLLBAR          */
+/* CUSTOM SCROLLBAR (NATIVE LOOK) */
 /* ======================== */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(100, 116, 139, 0.2);
+  background: rgba(100, 116, 139, 0.1);
   border-radius: 9999px;
+  transition: all 0.3s;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.4);
+  background: var(--color-primary);
 }
 
 /* ======================== */

@@ -1,21 +1,23 @@
 import { useState, useEffect } from 'react';
 import { 
   Plus, ArrowUpCircle, ArrowDownCircle, 
-  Trash2, CheckCircle2, X, Loader2, AlertCircle,
+  Trash2, CheckCircle2, Loader2, AlertCircle,
   Calendar as CalendarIcon, List as ListIcon,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency, cn } from '@/lib/utils';
 import { useAuthStore } from '@/store';
+import { logActivity } from '@/lib/audit';
+import { TransactionModal } from '@/components/TransactionModal';
 
 interface Transaction {
   id: string;
   description: string;
   amount: number;
   type: 'income' | 'expense';
-  status: 'paid' | 'pending';
+  status: 'paid' | 'pending' | 'overdue' | 'canceled';
   due_date: string;
   category: string;
   is_recurring?: boolean;
@@ -57,7 +59,32 @@ export function Transactions() {
     }
   }, [notification]);
 
-  // INTERLIGAÇÃO TOTAL: Salva transação e atualiza saldo bancário
+  const filtered = transactions.filter(t => 
+    t.description.toLowerCase().includes(searchTerm.toLowerCase()) && 
+    (filterType === 'all' || t.type === filterType)
+  );
+
+  const handleExportSheet = () => {
+    if (transactions.length === 0) return;
+    const headers = ['Data', 'Descricao', 'Categoria', 'Valor', 'Tipo', 'Status'];
+    const rows = filtered.map(t => [
+      new Date(t.due_date + 'T12:00:00').toLocaleDateString('pt-BR'),
+      t.description,
+      t.category || 'Geral',
+      t.amount.toString().replace('.', ','),
+      t.type === 'income' ? 'Receita' : 'Despesa',
+      t.status === 'paid' ? 'Efetivado' : t.status === 'pending' ? 'Em Aberto' : t.status === 'overdue' ? 'Atrasado' : 'Cancelado'
+    ]);
+
+    const csvContent = [headers, ...rows].map(e => e.join(';')).join('\n');
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `MOVIMENTACOES_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.csv`;
+    link.click();
+  };
+
   const handleSave = async (formData: any) => {
     if (!user?.tenant_id) return;
     setIsLoading(true);
@@ -68,27 +95,20 @@ export function Transactions() {
 
       if (tError) throw tError;
 
-      // Se já efetivado na hora do lançamento, atualiza o saldo
       if (formData.status === 'paid' && formData.bank_account_id) {
-        const { data: bank } = await supabase
-          .from('bank_accounts')
-          .select('balance')
-          .eq('id', formData.bank_account_id)
-          .single();
-
+        const { data: bank } = await supabase.from('bank_accounts').select('balance').eq('id', formData.bank_account_id).single();
         if (bank) {
-          const newBalance = formData.type === 'income' 
-            ? Number(bank.balance) + Number(formData.amount) 
-            : Number(bank.balance) - Number(formData.amount);
-
-          await supabase
-            .from('bank_accounts')
-            .update({ balance: newBalance })
-            .eq('id', formData.bank_account_id);
+          const newBalance = formData.type === 'income' ? Number(bank.balance) + Number(formData.amount) : Number(bank.balance) - Number(formData.amount);
+          await supabase.from('bank_accounts').update({ balance: newBalance }).eq('id', formData.bank_account_id);
         }
       }
 
-      setNotification({ type: 'success', message: '✅ Lançamento e saldo sincronizados!' });
+      await logActivity({
+        userId: user.id, tenantId: user.tenant_id, action: 'CREATE', module: 'TRANSACTIONS',
+        description: `Lançamento criado: ${formData.description} (${formatCurrency(formData.amount)})`
+      });
+
+      setNotification({ type: 'success', message: '✅ Sincronizado com sucesso!' });
       fetchTransactions();
       setShowModal(false);
     } catch (err: any) {
@@ -98,31 +118,22 @@ export function Transactions() {
     }
   };
 
-  // ESTORNO AUTOMÁTICO: Ao deletar, reverte o saldo
   const handleDelete = async (t: Transaction) => {
     if (!window.confirm('Excluir esta transação? O saldo será estornado automaticamente.')) return;
     setIsLoading(true);
     try {
       if (t.status === 'paid' && t.bank_account_id) {
-        const { data: bank } = await supabase
-          .from('bank_accounts')
-          .select('balance')
-          .eq('id', t.bank_account_id)
-          .single();
-
+        const { data: bank } = await supabase.from('bank_accounts').select('balance').eq('id', t.bank_account_id).single();
         if (bank) {
-          const restoredBalance = t.type === 'income' 
-            ? Number(bank.balance) - Number(t.amount) 
-            : Number(bank.balance) + Number(t.amount);
-
-          await supabase
-            .from('bank_accounts')
-            .update({ balance: restoredBalance })
-            .eq('id', t.bank_account_id);
+          const restoredBalance = t.type === 'income' ? Number(bank.balance) - Number(t.amount) : Number(bank.balance) + Number(t.amount);
+          await supabase.from('bank_accounts').update({ balance: restoredBalance }).eq('id', t.bank_account_id);
         }
       }
-
       await supabase.from('transactions').delete().eq('id', t.id);
+      await logActivity({
+        userId: user!.id, tenantId: user!.tenant_id!, action: 'DELETE', module: 'TRANSACTIONS',
+        description: `Lançamento deletado (Estorno realizado): ${t.description}`
+      });
       setNotification({ type: 'success', message: '🔄 Transação removida e saldo estornado.' });
       fetchTransactions();
     } catch (err: any) {
@@ -131,11 +142,6 @@ export function Transactions() {
       setIsLoading(false);
     }
   };
-
-  const filtered = transactions.filter(t => 
-    t.description.toLowerCase().includes(searchTerm.toLowerCase()) && 
-    (filterType === 'all' || t.type === filterType)
-  );
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto px-4 relative">
@@ -160,6 +166,12 @@ export function Transactions() {
           <p className="text-sm text-muted-foreground font-medium">Visualize e controle seu fluxo financeiro.</p>
         </div>
         <div className="flex gap-3">
+          <button 
+            onClick={handleExportSheet}
+            className="hidden md:flex px-4 py-2.5 bg-white border rounded-xl text-[10px] font-black uppercase text-slate-500 hover:bg-slate-50 transition-all items-center gap-2"
+          >
+            <Download className="w-4 h-4" /> Exportar Planilha
+          </button>
           <div className="flex bg-muted p-1 rounded-xl border">
             <button onClick={() => setViewMode('list')} className={cn("p-2 rounded-lg transition-all", viewMode === 'list' ? "bg-background shadow-sm text-primary" : "text-muted-foreground")}><ListIcon className="w-4 h-4" /></button>
             <button onClick={() => setViewMode('calendar')} className={cn("p-2 rounded-lg transition-all", viewMode === 'calendar' ? "bg-background shadow-sm text-primary" : "text-muted-foreground")}><CalendarIcon className="w-4 h-4" /></button>
@@ -173,18 +185,36 @@ export function Transactions() {
         </div>
       </div>
 
+      <div className="flex items-center gap-4 bg-white p-4 rounded-[1.5rem] border overflow-hidden">
+        <div className="relative flex-1">
+          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input className="w-full pl-10 pr-4 py-2 bg-slate-50 border-none outline-none font-bold text-xs rounded-xl" placeholder="Pesquisar lançamentos..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+        </div>
+        <select className="bg-slate-50 border-none outline-none font-black text-[10px] uppercase px-4 py-2 rounded-xl text-slate-500" value={filterType} onChange={e => setFilterType(e.target.value as any)}>
+          <option value="all">Todos</option>
+          <option value="income">Receitas</option>
+          <option value="expense">Despesas</option>
+        </select>
+      </div>
+
       {viewMode === 'list' ? (
         <ListView transactions={filtered} isLoading={isLoading} onDelete={handleDelete} />
       ) : (
         <CalendarView transactions={filtered} currentDate={currentDate} onMonthChange={setCurrentDate} />
       )}
 
-      <AnimatePresence>
-        {showModal && (
-          <TransactionModal onClose={() => setShowModal(false)} onSave={handleSave} />
-        )}
-      </AnimatePresence>
+      {showModal && (
+        <TransactionModal onClose={() => setShowModal(false)} onSave={handleSave} />
+      )}
     </div>
+  );
+}
+
+function SearchIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+    </svg>
   );
 }
 
@@ -226,8 +256,16 @@ function ListView({ transactions, isLoading, onDelete }: any) {
                   {t.type === 'income' ? '+' : '-'} {formatCurrency(t.amount)}
                 </td>
                 <td className="px-6 py-5 text-center">
-                  <span className={cn("px-3 py-1 rounded-full text-[9px] font-black uppercase", t.status === 'paid' ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600")}>
-                    {t.status === 'paid' ? 'Efetivado' : 'Pendente'}
+                  <span className={cn(
+                    "px-3 py-1 rounded-full text-[9px] font-black uppercase",
+                    t.status === 'paid' ? "bg-emerald-50 text-emerald-600" : 
+                    t.status === 'pending' ? "bg-amber-50 text-amber-600" :
+                    t.status === 'overdue' ? "bg-rose-50 text-rose-600" :
+                    "bg-slate-100 text-slate-500"
+                  )}>
+                    {t.status === 'paid' ? 'Efetivado' : 
+                     t.status === 'pending' ? 'Em Aberto' :
+                     t.status === 'overdue' ? 'Atrasado' : 'Cancelado'}
                   </span>
                 </td>
                 <td className="px-8 py-5 text-right">
@@ -250,14 +288,11 @@ function ListView({ transactions, isLoading, onDelete }: any) {
 function CalendarView({ transactions, currentDate, onMonthChange }: any) {
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
-  
   const prevMonth = () => onMonthChange(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
   const nextMonth = () => onMonthChange(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
-
   const days: (number | null)[] = [];
   for (let i = 0; i < firstDayOfMonth; i++) days.push(null);
   for (let i = 1; i <= daysInMonth; i++) days.push(i);
-
   const monthName = currentDate.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
 
   return (
@@ -294,105 +329,6 @@ function CalendarView({ transactions, currentDate, onMonthChange }: any) {
           );
         })}
       </div>
-    </div>
-  );
-}
-
-function TransactionModal({ onClose, onSave }: any) {
-  const { user } = useAuthStore();
-  const [form, setForm] = useState({
-    description: '', amount: 0, type: 'income', status: 'pending',
-    due_date: new Date().toISOString().split('T')[0], category: 'Geral',
-    is_recurring: false, recurrence_period: 'monthly',
-    bank_account_id: ''
-  });
-  const [accounts, setAccounts] = useState<any[]>([]);
-
-  useEffect(() => {
-    const fetchAccounts = async () => {
-      const { data } = await supabase.from('bank_accounts').select('*').eq('tenant_id', user?.tenant_id);
-      if (data && data.length > 0) {
-        setAccounts(data);
-        setForm(f => ({ ...f, bank_account_id: data[0].id }));
-      }
-    };
-    if (user) fetchAccounts();
-  }, [user]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-md">
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-card border rounded-[2.5rem] p-10 w-full max-w-lg shadow-2xl relative max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-8">
-          <h2 className="text-xl font-bold uppercase tracking-tight text-slate-700">Novo Lançamento</h2>
-          <button onClick={onClose} className="p-2 hover:bg-muted rounded-full transition-colors"><X className="w-5 h-5" /></button>
-        </div>
-        <div className="space-y-5">
-          {/* Tipo: Receita / Despesa */}
-          <div className="flex bg-muted p-1 rounded-xl border">
-            <button onClick={() => setForm({...form, type: 'income'})} className={cn("flex-1 py-3 rounded-lg font-black text-[10px] uppercase transition-all", form.type === 'income' ? "bg-emerald-500 text-white shadow-lg" : "text-muted-foreground")}>↑ Receita</button>
-            <button onClick={() => setForm({...form, type: 'expense'})} className={cn("flex-1 py-3 rounded-lg font-black text-[10px] uppercase transition-all", form.type === 'expense' ? "bg-rose-500 text-white shadow-lg" : "text-muted-foreground")}>↓ Despesa</button>
-          </div>
-
-          {/* Status + Conta Bancária */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-muted-foreground uppercase ml-1">Status</label>
-              <select className="w-full p-4 bg-muted border rounded-2xl outline-none font-bold cursor-pointer" value={form.status} onChange={e => setForm({...form, status: e.target.value})}>
-                <option value="pending">Pendente</option>
-                <option value="paid">✅ Efetivado</option>
-              </select>
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-muted-foreground uppercase ml-1">Conta Financeira</label>
-              <select className="w-full p-4 bg-muted border rounded-2xl outline-none font-bold cursor-pointer" value={form.bank_account_id} onChange={e => setForm({...form, bank_account_id: e.target.value})}>
-                {accounts.length === 0 ? (
-                  <option value="">Nenhuma conta cadastrada</option>
-                ) : accounts.map(acc => (
-                  <option key={acc.id} value={acc.id}>{acc.bank_name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Descrição */}
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-muted-foreground uppercase ml-1">Descrição</label>
-            <input className="w-full p-4 bg-muted border rounded-2xl outline-none font-bold" placeholder="Ex: Pagamento fornecedor..." value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
-          </div>
-
-          {/* Valor + Data */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-muted-foreground uppercase ml-1">Valor (R$)</label>
-              <input className="w-full p-4 bg-muted border rounded-2xl outline-none font-bold" type="number" placeholder="0,00" value={form.amount || ''} onChange={e => setForm({...form, amount: Number(e.target.value)})} />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-muted-foreground uppercase ml-1">Data</label>
-              <input className="w-full p-4 bg-muted border rounded-2xl outline-none font-bold" type="date" value={form.due_date} onChange={e => setForm({...form, due_date: e.target.value})} />
-            </div>
-          </div>
-
-          {/* Categoria */}
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-muted-foreground uppercase ml-1">Categoria</label>
-            <input className="w-full p-4 bg-muted border rounded-2xl outline-none font-bold" placeholder="Ex: Fornecedores, Vendas..." value={form.category} onChange={e => setForm({...form, category: e.target.value})} />
-          </div>
-
-          {/* Recorrência */}
-          <div className="p-4 bg-primary/5 border border-primary/20 rounded-2xl flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <input type="checkbox" id="rec" checked={form.is_recurring} onChange={e => setForm({...form, is_recurring: e.target.checked})} className="w-4 h-4 rounded border-slate-300 text-primary" />
-              <label htmlFor="rec" className="text-xs font-black uppercase text-slate-700">🔄 Repetir Mensalmente</label>
-            </div>
-            {form.is_recurring && <span className="text-[9px] font-black text-primary px-2 py-0.5 bg-primary/10 rounded uppercase">Ativo</span>}
-          </div>
-        </div>
-
-        <div className="flex gap-4 mt-10 pt-8 border-t">
-          <button onClick={onClose} className="flex-1 py-4 border rounded-2xl font-bold uppercase text-[10px] hover:bg-muted transition-all">Cancelar</button>
-          <button onClick={() => onSave(form)} className="flex-1 py-4 bg-primary text-white rounded-2xl font-bold uppercase text-[10px] shadow-xl shadow-primary/20 hover:scale-105 transition-all">Sincronizar Lançamento</button>
-        </div>
-      </motion.div>
     </div>
   );
 }

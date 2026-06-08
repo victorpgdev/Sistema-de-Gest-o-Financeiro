@@ -8,7 +8,8 @@ import {
   ChevronLeft,
   Building2,
   Users,
-  GraduationCap
+  GraduationCap,
+  ShieldCheck
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useUIStore, useAuthStore } from '@/store';
@@ -23,6 +24,7 @@ const MENU_ITEMS = [
   { icon: CreditCard, label: 'Cartões de Crédito', path: '/cards' },
   { icon: Users, label: 'Minha Equipe', path: '/team' },
   { icon: GraduationCap, label: 'PG Academy', path: '/help' },
+  { icon: ShieldCheck, label: 'Segurança e LGPD', path: '/security' },
 ];
 
 export function Sidebar() {

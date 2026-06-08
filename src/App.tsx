@@ -13,6 +13,8 @@ import { Team }           from './pages/Team';
 import { Settings }       from './pages/Settings';
 import { Help }           from './pages/Help';
 import { Onboarding }     from './pages/Onboarding';
+import { SecurityCompliance } from './pages/SecurityCompliance';
+import { TermsConsent }     from './components/TermsConsent';
 import { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
 import { useAuthStore } from './store';
@@ -21,15 +23,41 @@ import { Loader2, ShieldAlert } from 'lucide-react';
 function App() {
   const { isAuthenticated, isLoading, initialize, tenant, user } = useAuthStore();
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showConsent, setShowConsent] = useState(false);
+
+  useEffect(() => {
+    // Bloquear Menu de Contexto (Botão Direito) - Native Feel
+    const handleContextMenu = (e: MouseEvent) => e.preventDefault();
+    
+    // Bloquear atalhos de desenvolvedor
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'C'))) {
+        e.preventDefault();
+      }
+    };
+
+    document.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('contextmenu', handleContextMenu);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   useEffect(() => {
     initialize();
   }, [initialize]);
 
-  // Detecta primeiro acesso
+  // Detecta primeiro acesso (Onboarding e LGPD)
   useEffect(() => {
     if (user && user.role !== 'MASTER') {
-      // Verifica se onboarding foi completado
+      // 1. Verifica Consentimento LGPD
+      supabase.from('lgpd_consentimentos').select('id').eq('usuario_id', user.id).single()
+        .then(({ data: consent }) => {
+          if (!consent) setShowConsent(true);
+        });
+
+      // 2. Verifica Onboarding
       supabase.from('profiles').select('onboarding_completed').eq('id', user.id).single()
         .then(({ data }) => {
           if (data && !data.onboarding_completed) setShowOnboarding(true);
@@ -65,10 +93,11 @@ function App() {
               <Route path="/team"           element={<Team />} />
               <Route path="/settings"       element={<Settings />} />
               <Route path="/help"           element={<Help />} />
+              <Route path="/security"       element={<SecurityCompliance />} />
               
-              {/* Fallbacks */}
-              <Route path="/cobrancas"   element={<PlaceholderPage title="Régua de Cobrança" desc="Em breve." />} />
-              <Route path="/metas"       element={<PlaceholderPage title="Metas" desc="Em breve." />} />
+              {/* Gestão Avançada */}
+              <Route path="/cobrancas"   element={<PlaceholderPage title="Régua de Cobrança" desc="Módulo de automação de recebimentos." />} />
+              <Route path="/metas"       element={<PlaceholderPage title="Gestão de Metas" desc="Definição e acompanhamento de objetivos financeiros." />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           )
@@ -80,8 +109,13 @@ function App() {
         )}
       </Routes>
 
-      {/* Onboarding: aparece 1x no primeiro acesso do usuário */}
-      {isAuthenticated && showOnboarding && (
+      {/* Trava LGPD: Aceite de Termos Obrigatório */}
+      {isAuthenticated && showConsent && (
+        <TermsConsent user={user} onAccept={() => setShowConsent(false)} />
+      )}
+
+      {/* Onboarding: aparece 1x no primeiro acesso após aceite dos termos */}
+      {isAuthenticated && !showConsent && showOnboarding && (
         <Onboarding onComplete={() => setShowOnboarding(false)} />
       )}
     </BrowserRouter>

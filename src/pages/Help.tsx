@@ -215,6 +215,37 @@ Como funciona:
 💡 Você pode confiar: seus dados financeiros estão mais protegidos aqui do que em muitos bancos digitais.`
       }
     ]
+  },
+  {
+    id: 'ai',
+    icon: Lightbulb,
+    color: 'bg-slate-900',
+    light: 'bg-slate-50 text-slate-900',
+    title: 'PG Intelligence',
+    subtitle: 'Seu consultor financeiro robô 24h',
+    lessons: [
+      {
+        title: 'O que é o PG Intelligence e o Health Score?',
+        content: `O PG Intelligence é o "cérebro" do sistema. Ele não apenas guarda seus dados, ele os analisa em tempo real para encontrar padrões de lucro e risco.
+
+📊 Health Score:
+É uma nota de 0 a 100 que o robô dá para a saúde da sua empresa baseada na sua margem de lucro real.
+• Acima de 25%: Empresa Saudável ✅
+• Entre 10% e 25%: Atenção aos Custos ⚠️
+• Abaixo de 10%: Alerta Crítico 🚨
+
+O objetivo é manter seu Health Score sempre alto para garantir a longevidade do negócio.`
+      },
+      {
+        title: 'Como agir com base nos Insights da IA?',
+        content: `O robô gera dicas automáticas no topo da sua Dashboard. Veja como usar:
+
+🚨 Alerta de Custos: Se o robô identificar que uma categoria (ex: Marketing) está muito alta em relação à receita, ele avisará você para renegociar.
+📈 Projeção Estratégica: O algoritmo analisa a tendência dos últimos 30 dias para prever se você terá sobra de caixa na próxima semana.
+
+Dica: Use os insights para decidir quando contratar, quando cortar gastos e quando reinvestir no crescimento.`
+      }
+    ]
   }
 ];
 
