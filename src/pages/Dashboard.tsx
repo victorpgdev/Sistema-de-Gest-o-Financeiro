@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { 
   ArrowUpCircle, ArrowDownCircle, Wallet, 
   TrendingUp, BarChart3, AlertCircle, 
-  Plus, Loader2, Clock, ArrowRight
+  Plus, Loader2, Clock, ArrowRight, CheckCircle2
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency, cn } from '@/lib/utils';
 import { useAuthStore } from '@/store';
@@ -26,6 +26,7 @@ export function Dashboard() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
   const fetchDashboardData = async () => {
     if (!user?.tenant_id) {
@@ -43,7 +44,6 @@ export function Dashboard() {
       if (txError) throw txError;
 
       if (txs) {
-        // ... (cálculos de soma)
         const income = txs.filter(t => t.type === 'income' && t.status === 'paid').reduce((acc, t) => acc + t.amount, 0);
         const expense = txs.filter(t => t.type === 'expense' && t.status === 'paid').reduce((acc, t) => acc + t.amount, 0);
         const pendIncome = txs.filter(t => t.type === 'income' && t.status === 'pending').reduce((acc, t) => acc + t.amount, 0);
@@ -79,7 +79,7 @@ export function Dashboard() {
         });
       }
     } catch (err: any) {
-      console.warn("Dashboard sync warning (tables missing?):", err.message);
+      console.warn("Dashboard sync warning:", err.message);
     } finally {
       setIsLoading(false);
     }
@@ -90,28 +90,46 @@ export function Dashboard() {
     try {
       const { error } = await supabase.from('transactions').insert([{
         ...formData,
-        tenant_id: user.tenant_id,
-        user_id: user.id
+        tenant_id: user.tenant_id
       }]);
+
       if (error) throw error;
-      if (formData.status === 'paid') {
+
+      if (formData.status === 'paid' && formData.bank_account_id) {
         const { data: account } = await supabase.from('bank_accounts').select('balance').eq('id', formData.bank_account_id).single();
         if (account) {
           const newBalance = formData.type === 'income' ? account.balance + formData.amount : account.balance - formData.amount;
           await supabase.from('bank_accounts').update({ balance: newBalance }).eq('id', formData.bank_account_id);
         }
+      } else if (formData.status === 'paid' && formData.credit_card_id) {
+        const { data: card } = await supabase.from('credit_cards').select('current_spent').eq('id', formData.credit_card_id).single();
+        if (card) {
+          const newSpent = Number(card.current_spent) + Number(formData.amount);
+          await supabase.from('credit_cards').update({ current_spent: newSpent }).eq('id', formData.credit_card_id);
+        }
       }
+
       await logActivity({
         userId: user.id, tenantId: user.tenant_id,
         action: 'CREATE', module: 'TRANSACTIONS',
         description: `Novo lançamento via Dashboard: ${formData.description}`
       });
+
+      setNotification({ type: 'success', message: '🚀 Lançamento realizado com sucesso!' });
       setShowModal(false);
       fetchDashboardData();
-    } catch (err: any) { alert(`Erro: ${err.message}`); }
+    } catch (err: any) { 
+      setNotification({ type: 'error', message: `Erro ao salvar: ${err.message}` });
+    }
   };
 
   useEffect(() => { if (user) fetchDashboardData(); }, [user]);
+  useEffect(() => {
+    if (notification) {
+      const t = setTimeout(() => setNotification(null), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [notification]);
 
   if (isLoading) {
     return (
@@ -123,13 +141,27 @@ export function Dashboard() {
   }
 
   return (
-    <div className="h-full flex flex-col gap-4 max-w-[1600px] mx-auto px-6 overflow-hidden">
+    <div className="h-full flex flex-col gap-4 max-w-[1600px] mx-auto px-6 overflow-hidden relative">
       
-      {/* Header Compacto */}
+      <AnimatePresence>
+        {notification && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className={cn(
+              "fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border backdrop-blur-md text-white font-bold text-sm",
+              notification.type === 'success' ? "bg-emerald-500/90 border-emerald-400" : "bg-rose-500/90 border-rose-400"
+            )}
+          >
+            {notification.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+            {notification.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-800">
-            Olá, <span className="text-primary">{user?.name?.split(' ')[0]}</span>!
+            Olá, <span className="text-primary">{user?.name?.split(' ')[0] || 'Usuário'}</span>!
           </h1>
           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Health Score: {data.insights.healthScore}%</p>
         </div>
@@ -141,7 +173,6 @@ export function Dashboard() {
         </button>
       </div>
 
-      {/* Grid de Métricas Compactas */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCardSmall label="Disponível" value={data.totals.balance} icon={Wallet} color="primary" />
         <MetricCardSmall label="Entradas" value={data.totals.income} icon={ArrowUpCircle} color="emerald" />
@@ -149,10 +180,7 @@ export function Dashboard() {
         <MetricCardSmall label="Projeção" value={data.pending.income - data.pending.expense} icon={TrendingUp} color="blue" />
       </div>
 
-      {/* Conteúdo Central: Gráfico + IA Lateral */}
       <div className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-4 gap-4">
-        
-        {/* Gráfico Otimizado */}
         <div className="xl:col-span-3 bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-bold text-slate-700 uppercase tracking-widest">Fluxo de Liquidez</h3>
@@ -179,7 +207,6 @@ export function Dashboard() {
           </div>
         </div>
 
-        {/* PG Intelligence Vertical & Compacto */}
         <div className="space-y-4 flex flex-col">
           <div className="bg-slate-900 rounded-[2rem] p-5 text-white flex-1 relative overflow-hidden flex flex-col justify-center">
             <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-3xl -mr-16 -mt-16" />
@@ -203,7 +230,7 @@ export function Dashboard() {
             </div>
           </div>
 
-          <div className="bg-white border border-slate-100 rounded-[2rem] p-5 shadow-sm flex flex-col">
+          <div className="bg-white border border-slate-100 rounded-[2rem] p-5 shadow-sm flex flex-col min-h-0">
             <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Recentes</h3>
             <div className="space-y-3 flex-1 overflow-y-auto scrollbar-hide">
               {data.recentTransactions.map((tx: any) => (

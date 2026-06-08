@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   ShieldCheck, FileText, Download, 
   Trash2, Lock, Eye, CheckCircle2, 
@@ -74,10 +74,18 @@ export function SecurityCompliance() {
         userId: user!.id, tenantId: user!.tenant_id!, action: 'DELETE', module: 'SYSTEM',
         description: 'Protocolo de exclusão solicitado com confirmação visual DELETAR.'
       });
-      setModalType('none');
-      alert('Sua solicitação foi registrada! Entraremos em contato.');
+      setNotification({ type: 'success', message: 'Sua solicitação foi registrada! Entraremos em contato.' });
     } finally { setIsLoading(false); }
   };
+
+  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
+
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
 
   const downloadFile = (blob: Blob, name: string) => {
     const url = URL.createObjectURL(blob);
@@ -89,6 +97,21 @@ export function SecurityCompliance() {
 
   return (
     <div className="max-w-4xl mx-auto px-6 pb-20 space-y-12">
+      <AnimatePresence>
+        {notification && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className={cn(
+              "fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border backdrop-blur-md text-white font-bold text-sm",
+              notification.type === 'success' ? "bg-emerald-500/90 border-emerald-400" : "bg-rose-500/90 border-rose-400"
+            )}
+          >
+            {notification.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
+            {notification.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="text-center space-y-4 pt-10">
         <div className="w-16 h-16 bg-primary/10 text-primary rounded-[2rem] flex items-center justify-center mx-auto shadow-sm">
           <ShieldCheck className="w-8 h-8" />

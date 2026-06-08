@@ -3,7 +3,8 @@ import {
   Building2, Users, Shield, Plus, Search, 
   MoreVertical, Edit2, Trash2, CheckCircle2, 
   X, Loader2, Filter, Globe, Calendar, 
-  CreditCard, Ban, Key, AlertCircle, Link
+  CreditCard, Ban, Key, AlertCircle, Link,
+  ShieldAlert
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
@@ -19,6 +20,8 @@ export function MasterDashboard() {
   const [showModal, setShowModal] = useState(false);
   const [showLinkModal, setShowLinkModal] = useState<any>(null);
   const [showEditTenantModal, setShowEditTenantModal] = useState<any>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<{type: 'tenant' | 'profile', id: string, name: string} | null>(null);
+  const [confirmInput, setConfirmInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
@@ -44,6 +47,9 @@ export function MasterDashboard() {
 
   useEffect(() => { 
     fetchData(); 
+  }, []);
+
+  useEffect(() => {
     if (notification) {
       const timer = setTimeout(() => setNotification(null), 3000);
       return () => clearTimeout(timer);
@@ -89,42 +95,24 @@ export function MasterDashboard() {
     }
   };
 
-  const handleDeleteTenant = async (id: string) => {
-    const confirmText = window.prompt('⚠️ ATENÇÃO: Esta ação é IRREVERSÍVEL. Digite "DELETAR" para apagar esta empresa e todos os seus dados permanentemente do banco de dados:');
+  const executeDelete = async () => {
+    if (!showDeleteConfirm || confirmInput !== 'DELETAR') return;
     
-    if (confirmText !== 'DELETAR') {
-      if (confirmText !== null) alert('Confirmação inválida. Operação cancelada.');
-      return;
-    }
-
     setIsLoading(true);
     try {
-      await supabase.from('profiles').delete().eq('tenant_id', id);
-      const { error } = await supabase.from('tenants').delete().eq('id', id);
-      if (error) throw error;
-      setNotification({ type: 'success', message: 'Empresa e dados deletados permanentemente.' });
+      if (showDeleteConfirm.type === 'tenant') {
+        await supabase.from('profiles').delete().eq('tenant_id', showDeleteConfirm.id);
+        const { error } = await supabase.from('tenants').delete().eq('id', showDeleteConfirm.id);
+        if (error) throw error;
+        setNotification({ type: 'success', message: 'Empresa e dados deletados permanentemente.' });
+      } else {
+        const { error } = await supabase.from('profiles').delete().eq('id', showDeleteConfirm.id);
+        if (error) throw error;
+        setNotification({ type: 'success', message: 'Usuário removido do banco de dados.' });
+      }
       fetchData();
-    } catch (err: any) {
-      setNotification({ type: 'error', message: err.message });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleDeleteProfile = async (id: string) => {
-    const confirmText = window.prompt('Digite "DELETAR" para remover este usuário permanentemente:');
-    
-    if (confirmText !== 'DELETAR') {
-      if (confirmText !== null) alert('Confirmação inválida.');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const { error } = await supabase.from('profiles').delete().eq('id', id);
-      if (error) throw error;
-      setNotification({ type: 'success', message: 'Usuário removido do banco de dados.' });
-      fetchData();
+      setShowDeleteConfirm(null);
+      setConfirmInput('');
     } catch (err: any) {
       setNotification({ type: 'error', message: err.message });
     } finally {
@@ -178,13 +166,12 @@ export function MasterDashboard() {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto px-4 pb-20 relative">
-      {/* Notificações Topo */}
       <AnimatePresence>
         {notification && (
           <motion.div 
             initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
             className={cn(
-              "fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border backdrop-blur-md text-white font-bold text-sm",
+              "fixed bottom-8 left-1/2 -translate-x-1/2 z-[300] px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border backdrop-blur-md text-white font-bold text-sm",
               notification.type === 'success' ? "bg-emerald-500/90 border-emerald-400" : "bg-rose-500/90 border-rose-400"
             )}
           >
@@ -314,7 +301,7 @@ export function MasterDashboard() {
                             <Edit2 className="w-4 h-4" />
                            </button>
                            <button 
-                            onClick={() => handleDeleteTenant(t.id)}
+                            onClick={() => setShowDeleteConfirm({ type: 'tenant', id: t.id, name: t.name })}
                             className="p-2.5 hover:bg-rose-50 text-slate-500 hover:text-rose-500 rounded-xl transition-all border border-transparent hover:border-rose-100"
                            >
                             <Trash2 className="w-4 h-4" />
@@ -323,9 +310,6 @@ export function MasterDashboard() {
                       </td>
                     </tr>
                   ))}
-                  {filteredTenants.length === 0 && (
-                    <tr><td colSpan={5} className="py-20 text-center text-slate-400 font-bold">Nenhuma empresa encontrada com esse termo.</td></tr>
-                  )}
                 </tbody>
               </table>
             ) : (
@@ -369,7 +353,7 @@ export function MasterDashboard() {
                       </td>
                       <td className="px-10 py-6 text-right">
                          <button 
-                          onClick={() => handleDeleteProfile(p.id)}
+                          onClick={() => setShowDeleteConfirm({ type: 'profile', id: p.id, name: p.name || p.email })}
                           className="p-2.5 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-xl transition-all opacity-0 group-hover:opacity-100"
                          >
                             <Trash2 className="w-4 h-4" />
@@ -385,7 +369,45 @@ export function MasterDashboard() {
       </div>
 
       <AnimatePresence>
-        {/* Modal Editar Empresa */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 z-[400] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white border rounded-[3rem] p-12 w-full max-w-md shadow-2xl relative text-center">
+               <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-8 animate-bounce">
+                  <ShieldAlert className="w-10 h-10" />
+               </div>
+               <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight mb-2">Segurança Master</h3>
+               <p className="text-sm text-slate-500 mb-8">
+                 Deseja deletar permanentemente <strong>{showDeleteConfirm.name}</strong>? 
+                 {showDeleteConfirm.type === 'tenant' && ' Isso apagará TODAS as transações e usuários vinculados.'}
+               </p>
+               
+               <div className="space-y-4 mb-8">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Digite <span className="text-rose-600 underline">DELETAR</span> para prosseguir</p>
+                  <input 
+                    className="w-full p-4 bg-slate-50 border-2 border-slate-100 focus:border-rose-500 rounded-2xl outline-none font-black text-center uppercase tracking-widest transition-all"
+                    value={confirmInput}
+                    onChange={e => setConfirmInput(e.target.value)}
+                    placeholder="CONFIRMAÇÃO..."
+                  />
+               </div>
+
+               <div className="flex gap-4">
+                  <button onClick={() => { setShowDeleteConfirm(null); setConfirmInput(''); }} className="flex-1 py-4 border-2 rounded-2xl font-black text-xs uppercase hover:bg-slate-50 transition-all">Cancelar</button>
+                  <button 
+                    onClick={executeDelete}
+                    disabled={confirmInput !== 'DELETAR'}
+                    className={cn(
+                      "flex-1 py-4 rounded-2xl font-black text-xs uppercase shadow-xl transition-all",
+                      confirmInput === 'DELETAR' ? "bg-rose-600 text-white shadow-rose-200" : "bg-slate-200 text-slate-400 grayscale"
+                    )}
+                  >
+                    Confirmar Exclusão
+                  </button>
+               </div>
+            </motion.div>
+          </div>
+        )}
+
         {showEditTenantModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-md">
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white border border-slate-200 rounded-[2.5rem] p-10 w-full max-w-lg shadow-2xl relative">
