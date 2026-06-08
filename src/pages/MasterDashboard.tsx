@@ -141,12 +141,13 @@ export function MasterDashboard() {
       const { error: pError } = await supabase
         .from('profiles')
         .insert([{ 
-          id: crypto.randomUUID(),
+          id: crypto.randomUUID(), // Nota: Para produção real, este ID viria do Supabase Auth
           email: form.email, 
           name: form.clientName, 
           role: 'OWNER', 
           tenant_id: tenant.id,
-          status: 'active'
+          status: 'active',
+          onboarding_completed: true
         }]);
 
       if (pError) throw pError;
