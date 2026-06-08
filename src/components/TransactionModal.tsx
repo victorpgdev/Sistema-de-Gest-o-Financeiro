@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, ChevronDown, Check, Search } from 'lucide-react';
+import { X, ChevronDown, Check, Search, Calendar as CalendarIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
@@ -24,12 +24,24 @@ const EXPENSE_CATEGORIES = [
   'Juros e Multas', 'Investimentos', 'Retirada de Lucros', 'Outras Despesas'
 ];
 
+const STATUS_OPTIONS = [
+  { id: 'pending', label: '🕒 Em Aberto', color: 'text-amber-600' },
+  { id: 'paid', label: '✅ Efetivado', color: 'text-emerald-600' },
+  { id: 'overdue', label: '🚨 Atrasado', color: 'text-rose-600' },
+  { id: 'canceled', label: '❌ Cancelado', color: 'text-slate-500' }
+];
+
 export function TransactionModal({ onClose, onSave }: TransactionModalProps) {
   const { user } = useAuthStore();
   const [accounts, setAccounts] = useState<any[]>([]);
   const [isOpenCategories, setIsOpenCategories] = useState(false);
+  const [isOpenStatus, setIsOpenStatus] = useState(false);
+  const [isOpenAccounts, setIsOpenAccounts] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  const categoryRef = useRef<HTMLDivElement>(null);
+  const statusRef = useRef<HTMLDivElement>(null);
+  const accountsRef = useRef<HTMLDivElement>(null);
 
   const [form, setForm] = useState({
     type: 'income',
@@ -44,39 +56,45 @@ export function TransactionModal({ onClose, onSave }: TransactionModalProps) {
 
   useEffect(() => {
     const fetchAccounts = async () => {
-      const { data } = await supabase.from('bank_accounts').select('*').eq('tenant_id', user?.tenant_id);
-      if (data && data.length > 0) {
-        setAccounts(data);
-        setForm(f => ({ ...f, bank_account_id: data[0].id }));
-      }
+      try {
+        const { data } = await supabase.from('bank_accounts').select('*').eq('tenant_id', user?.tenant_id);
+        if (data && data.length > 0) {
+          setAccounts(data);
+          setForm(f => ({ ...f, bank_account_id: data[0].id }));
+        }
+      } catch (err) { console.error(err); }
     };
     if (user) fetchAccounts();
   }, [user]);
 
+  // Click Outside logic para todos os dropdowns
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpenCategories(false);
-      }
+      if (categoryRef.current && !categoryRef.current.contains(event.target as Node)) setIsOpenCategories(false);
+      if (statusRef.current && !statusRef.current.contains(event.target as Node)) setIsOpenStatus(false);
+      if (accountsRef.current && !accountsRef.current.contains(event.target as Node)) setIsOpenAccounts(false);
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const handleClose = () => {
+    setSearchTerm('');
+    setIsOpenCategories(false);
+    setIsOpenStatus(false);
+    setIsOpenAccounts(false);
+    onClose();
+  };
 
   const categories = form.type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
   const filteredCategories = categories.filter(c => c.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-md">
-      {/* Modal - Overflow-visible para o dropdown não sumir */}
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }} 
-        animate={{ opacity: 1, scale: 1 }} 
-        className="bg-card border rounded-[2.5rem] p-10 w-full max-w-lg shadow-2xl relative"
-      >
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-card border rounded-[2.5rem] p-10 w-full max-w-lg shadow-2xl relative">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold uppercase tracking-tight text-slate-700">Novo Lançamento</h2>
-          <button onClick={onClose} className="p-2 hover:bg-muted rounded-full transition-colors"><X className="w-5 h-5" /></button>
+          <button onClick={handleClose} className="p-2 hover:bg-muted rounded-full transition-colors"><X className="w-5 h-5" /></button>
         </div>
 
         <div className="space-y-4">
@@ -87,57 +105,60 @@ export function TransactionModal({ onClose, onSave }: TransactionModalProps) {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-             {/* Status - Moved up */}
-             <div className="space-y-1">
-              <label className="text-[9px] font-black text-muted-foreground uppercase ml-1">Status</label>
-              <select className="w-full p-3 bg-muted border rounded-xl outline-none font-bold text-xs cursor-pointer transition-all focus:border-primary appearance-none" value={form.status} onChange={e => setForm({...form, status: e.target.value})}>
-                <option value="pending">🕒 Em Aberto</option>
-                <option value="paid">✅ Efetivado</option>
-                <option value="overdue">🚨 Atrasado</option>
-                <option value="canceled">❌ Cancelado</option>
-              </select>
-            </div>
-            {/* Categoria - Moved up to have space below */}
-            <div className="space-y-1 relative" ref={dropdownRef}>
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Categoria</label>
-              <div 
-                onClick={() => setIsOpenCategories(!isOpenCategories)}
-                className="w-full p-3 bg-muted border rounded-xl cursor-pointer flex items-center justify-between group hover:border-primary/40 transition-all"
-              >
-                <span className={cn("font-bold text-xs truncate", !form.category && "text-muted-foreground")}>
-                  {form.category || "Selecione..."}
-                </span>
-                <ChevronDown className={cn("w-3 h-3 text-slate-400 transition-transform", isOpenCategories && "rotate-180")} />
-              </div>
-
-              <AnimatePresence>
-                {isOpenCategories && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }}
-                    className="absolute z-[110] left-0 right-0 mt-1 bg-white border rounded-2xl shadow-2xl overflow-hidden min-w-[200px]"
-                  >
-                    <div className="p-2 border-b bg-slate-50">
-                      <div className="relative">
-                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
-                        <input className="w-full pl-7 pr-3 py-1.5 bg-white border rounded-lg text-[10px] font-bold outline-none" placeholder="Buscar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} autoFocus />
-                      </div>
-                    </div>
-                    <div className="max-h-[160px] overflow-y-auto p-1 space-y-0.5 scrollbar-thin">
-                      {filteredCategories.map(cat => (
-                        <button key={cat} onClick={() => { setForm({...form, category: cat}); setIsOpenCategories(false); }} className={cn("w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold flex items-center justify-between", form.category === cat ? "bg-primary text-white" : "hover:bg-slate-50 text-slate-600")}>
-                          {cat} {form.category === cat && <Check className="w-3 h-3" />}
+             {/* STATUS CUSTOM DROP */}
+             <div className="space-y-1 relative" ref={statusRef}>
+                <label className="text-[9px] font-black text-muted-foreground uppercase ml-1">Status</label>
+                <div onClick={() => setIsOpenStatus(!isOpenStatus)} className="w-full p-3 bg-muted border rounded-xl cursor-pointer flex items-center justify-between group hover:border-primary/40 transition-all">
+                  <span className="font-bold text-xs truncate">
+                    {STATUS_OPTIONS.find(s => s.id === form.status)?.label}
+                  </span>
+                  <ChevronDown className={cn("w-3 h-3 text-slate-400 transition-transform", isOpenStatus && "rotate-180")} />
+                </div>
+                <AnimatePresence>
+                  {isOpenStatus && (
+                    <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="absolute z-[120] left-0 right-0 mt-1 bg-white border rounded-2xl shadow-2xl overflow-hidden p-1">
+                      {STATUS_OPTIONS.map(opt => (
+                        <button key={opt.id} onClick={() => { setForm({...form, status: opt.id}); setIsOpenStatus(false); }} className={cn("w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold flex items-center justify-between", form.status === opt.id ? "bg-slate-50 text-primary" : "hover:bg-slate-50")}>
+                          {opt.label} {form.status === opt.id && <Check className="w-3 h-3" />}
                         </button>
                       ))}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+             </div>
+
+             {/* CATEGORIA CUSTOM DROP */}
+             <div className="space-y-1 relative" ref={categoryRef}>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Categoria</label>
+                <div onClick={() => setIsOpenCategories(!isOpenCategories)} className="w-full p-3 bg-muted border rounded-xl cursor-pointer flex items-center justify-between group hover:border-primary/40 transition-all">
+                  <span className={cn("font-bold text-xs truncate", !form.category && "text-muted-foreground")}>{form.category || "Selecione..."}</span>
+                  <ChevronDown className={cn("w-3 h-3 text-slate-400 transition-transform", isOpenCategories && "rotate-180")} />
+                </div>
+                <AnimatePresence>
+                  {isOpenCategories && (
+                    <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="absolute z-[120] left-0 right-0 mt-1 bg-white border rounded-2xl shadow-2xl overflow-hidden min-w-[200px]">
+                      <div className="p-2 border-b bg-slate-50">
+                        <div className="relative">
+                          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                          <input className="w-full pl-7 pr-3 py-1.5 bg-white border rounded-lg text-[10px] font-bold outline-none" placeholder="Buscar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} autoFocus />
+                        </div>
+                      </div>
+                      <div className="max-h-[160px] overflow-y-auto p-1 space-y-0.5 scrollbar-thin">
+                        {filteredCategories.map(cat => (
+                          <button key={cat} onClick={() => { setForm({...form, category: cat}); setIsOpenCategories(false); }} className={cn("w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold flex items-center justify-between", form.category === cat ? "bg-primary text-white" : "hover:bg-slate-50")}>
+                            {cat} {form.category === cat && <Check className="w-3 h-3" />}
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+             </div>
           </div>
 
           <div className="space-y-1">
-            <label className="text-[9px] font-black text-muted-foreground uppercase ml-1">Descrição do Lançamento</label>
-            <input className="w-full p-3 bg-muted border rounded-xl outline-none font-bold text-xs focus:border-primary" placeholder="Ex: Mensalidade, Venda..." value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
+            <label className="text-[9px] font-black text-muted-foreground uppercase ml-1">Descrição</label>
+            <input className="w-full p-3 bg-muted border rounded-xl outline-none font-bold text-xs focus:border-primary" placeholder="Ex: Mensalidade..." value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -147,15 +168,33 @@ export function TransactionModal({ onClose, onSave }: TransactionModalProps) {
             </div>
             <div className="space-y-1">
               <label className="text-[9px] font-black text-muted-foreground uppercase ml-1">Vencimento</label>
-              <input className="w-full p-3 bg-muted border rounded-xl outline-none font-bold text-xs focus:border-primary" type="date" value={form.due_date} onChange={e => setForm({...form, due_date: e.target.value})} />
+              <div className="relative">
+                <input className="w-full p-3 bg-muted border rounded-xl outline-none font-bold text-xs focus:border-primary appearance-none cursor-pointer" type="date" value={form.due_date} onChange={e => setForm({...form, due_date: e.target.value})} />
+                <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+              </div>
             </div>
           </div>
 
-          <div className="space-y-1">
+          {/* BANCO CUSTOM DROP */}
+          <div className="space-y-1 relative" ref={accountsRef}>
             <label className="text-[9px] font-black text-muted-foreground uppercase ml-1">Conta Bancária</label>
-            <select className="w-full p-3 bg-muted border rounded-xl outline-none font-bold text-xs cursor-pointer appearance-none" value={form.bank_account_id} onChange={e => setForm({...form, bank_account_id: e.target.value})}>
-              {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.bank_name}</option>)}
-            </select>
+            <div onClick={() => setIsOpenAccounts(!isOpenAccounts)} className="w-full p-3 bg-muted border rounded-xl cursor-pointer flex items-center justify-between group hover:border-primary/40 transition-all">
+              <span className="font-bold text-xs truncate">
+                {accounts.find(a => a.id === form.bank_account_id)?.bank_name || "Selecione a conta..."}
+              </span>
+              <ChevronDown className={cn("w-3 h-3 text-slate-400 transition-transform", isOpenAccounts && "rotate-180")} />
+            </div>
+            <AnimatePresence>
+              {isOpenAccounts && (
+                <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="absolute z-[120] left-0 right-0 mt-1 bg-white border rounded-2xl shadow-2xl overflow-hidden p-1">
+                  {accounts.map(acc => (
+                    <button key={acc.id} onClick={() => { setForm({...form, bank_account_id: acc.id}); setIsOpenAccounts(false); }} className={cn("w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold flex items-center justify-between", form.bank_account_id === acc.id ? "bg-slate-50 text-primary" : "hover:bg-slate-50")}>
+                      {acc.bank_name} {form.bank_account_id === acc.id && <Check className="w-3 h-3" />}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           <div className="p-3 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between">
@@ -167,7 +206,7 @@ export function TransactionModal({ onClose, onSave }: TransactionModalProps) {
         </div>
 
         <div className="flex gap-3 mt-6 pt-6 border-t font-black">
-          <button onClick={onClose} className="flex-1 py-3 border rounded-xl text-[9px] uppercase hover:bg-muted transition-all">Cancelar</button>
+          <button onClick={handleClose} className="flex-1 py-3 border rounded-xl text-[9px] uppercase hover:bg-muted transition-all">Cancelar</button>
           <button onClick={() => onSave(form)} className="flex-1 py-3 bg-primary text-white rounded-xl text-[9px] uppercase shadow-lg shadow-primary/20 hover:scale-105 transition-all">Salvar Lançamento</button>
         </div>
       </motion.div>

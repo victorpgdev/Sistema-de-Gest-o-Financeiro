@@ -29,7 +29,10 @@ export function BankAccounts() {
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
   const fetchAccounts = async () => {
-    if (!user?.tenant_id && user?.role !== 'MASTER') return;
+    if (!user?.tenant_id && user?.role !== 'MASTER') {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     try {
       const query = supabase.from('bank_accounts').select('*');
@@ -37,7 +40,10 @@ export function BankAccounts() {
         query.eq('tenant_id', user.tenant_id);
       }
       const { data, error } = await query.order('bank_name');
-      if (!error) setAccounts(data || []);
+      if (error) throw error;
+      setAccounts(data || []);
+    } catch (err: any) {
+      console.warn('BankAccounts fetch warning:', err.message);
     } finally {
       setIsLoading(false);
     }
@@ -203,9 +209,18 @@ export function BankAccounts() {
   );
 }
 
+const ACCOUNT_TYPES = [
+  { id: 'checking', label: '🏦 Conta Corrente' },
+  { id: 'savings', label: '💰 Poupança' },
+  { id: 'investment', label: '📈 Investimento' },
+  { id: 'cash', label: '💵 Caixa / Dinheiro' }
+];
+
 function BankForm({ onSave, onCancel }: any) {
   const [formData, setFormData] = useState({ bank_name: '', type: 'checking', balance: 0, agency: '', account_number: '' });
   const [bankSuggestions, setBankSuggestions] = useState<any[]>([]);
+  const [isOpenType, setIsOpenType] = useState(false);
+
   const handleBankSearch = (val: string) => {
     setFormData({...formData, bank_name: val});
     if (val.length > 1) {
@@ -215,6 +230,7 @@ function BankForm({ onSave, onCancel }: any) {
       setBankSuggestions([]);
     }
   };
+
   return (
     <div className="space-y-6">
       <div className="space-y-2 relative">
@@ -231,17 +247,38 @@ function BankForm({ onSave, onCancel }: any) {
           )}
         </AnimatePresence>
       </div>
+
       <div className="grid grid-cols-2 gap-6">
-        <div className="space-y-2"><label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Tipo de Conta</label><select className="w-full p-4 bg-muted/40 border rounded-2xl outline-none font-bold cursor-pointer" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})}><option value="checking">Corrente</option><option value="savings">Poupança</option><option value="investment">Investimento</option></select></div>
-        <div className="space-y-2"><label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Saldo (R$)</label><input type="number" className="w-full p-4 bg-muted/40 border rounded-2xl outline-none font-bold" value={formData.balance || ''} onChange={e => setFormData({...formData, balance: Number(e.target.value)})} /></div>
+        {/* TIPO DE CONTA - NATIVE DROPDOWN */}
+        <div className="space-y-2 relative">
+          <label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Tipo de Conta</label>
+          <div onClick={() => setIsOpenType(!isOpenType)} className="w-full p-4 bg-muted/40 border rounded-2xl cursor-pointer flex items-center justify-between hover:border-primary/40 transition-all">
+            <span className="font-bold text-sm">{ACCOUNT_TYPES.find(t => t.id === formData.type)?.label}</span>
+            <MoreVertical className="w-3 h-3 text-slate-400" />
+          </div>
+          <AnimatePresence>
+            {isOpenType && (
+              <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="absolute z-20 left-0 right-0 mt-1 bg-white border rounded-2xl shadow-2xl p-1 overflow-hidden">
+                {ACCOUNT_TYPES.map(opt => (
+                  <button key={opt.id} onClick={() => { setFormData({...formData, type: opt.id}); setIsOpenType(false); }} className={cn("w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold flex items-center justify-between transition-all", formData.type === opt.id ? "bg-primary text-white" : "hover:bg-slate-50")}>
+                    {opt.label}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+        <div className="space-y-2"><label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Saldo Inicial (R$)</label><input type="number" className="w-full p-4 bg-muted/40 border rounded-2xl outline-none font-bold" value={formData.balance || ''} onChange={e => setFormData({...formData, balance: Number(e.target.value)})} /></div>
       </div>
+
       <div className="grid grid-cols-2 gap-6">
         <div className="space-y-2"><label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Agência</label><input className="w-full p-4 bg-muted/40 border rounded-2xl outline-none font-bold" placeholder="0001" value={formData.agency} onChange={e => setFormData({...formData, agency: e.target.value})} /></div>
         <div className="space-y-2"><label className="text-xs font-black text-muted-foreground uppercase tracking-widest ml-1">Conta + Dígito</label><input className="w-full p-4 bg-muted/40 border rounded-2xl outline-none font-bold" placeholder="12345-6" value={formData.account_number} onChange={e => setFormData({...formData, account_number: e.target.value})} /></div>
       </div>
+
       <div className="flex gap-4 mt-8 pt-6 border-t font-semibold">
-          <button onClick={onCancel} className="flex-1 py-4 border rounded-2xl hover:bg-muted">CANCELAR</button>
-          <button onClick={() => onSave(formData)} className="flex-1 py-4 bg-primary text-white rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all">SALVAR CONTA</button>
+          <button onClick={onCancel} className="flex-1 py-4 border rounded-2xl hover:bg-muted transition-all uppercase text-xs">Cancelar</button>
+          <button onClick={() => onSave(formData)} className="flex-1 py-4 bg-primary text-white rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all uppercase text-xs">Salvar Conta</button>
       </div>
     </div>
   );

@@ -31,7 +31,10 @@ export function CreditCards() {
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
   const fetchCards = async () => {
-    if (!user?.tenant_id && user?.role !== 'MASTER') return;
+    if (!user?.tenant_id && user?.role !== 'MASTER') {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     try {
       const query = supabase.from('credit_cards').select('*');
@@ -39,7 +42,10 @@ export function CreditCards() {
         query.eq('tenant_id', user.tenant_id);
       }
       const { data, error } = await query.order('card_name');
-      if (!error) setCards(data || []);
+      if (error) throw error;
+      setCards(data || []);
+    } catch (err: any) {
+      console.warn('CreditCards fetch warning:', err.message);
     } finally {
       setIsLoading(false);
     }

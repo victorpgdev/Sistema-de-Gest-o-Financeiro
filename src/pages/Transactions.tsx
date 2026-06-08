@@ -36,13 +36,19 @@ export function Transactions() {
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
   const fetchTransactions = async () => {
-    if (!user?.tenant_id && user?.role !== 'MASTER') return;
+    if (!user?.tenant_id && user?.role !== 'MASTER') {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     try {
       const query = supabase.from('transactions').select('*');
       if (user?.tenant_id) query.eq('tenant_id', user.tenant_id);
       const { data, error } = await query.order('due_date', { ascending: false });
-      if (!error) setTransactions(data || []);
+      if (error) throw error;
+      setTransactions(data || []);
+    } catch (err: any) {
+      console.warn("Transactions fetch warning:", err.message);
     } finally {
       setIsLoading(false);
     }

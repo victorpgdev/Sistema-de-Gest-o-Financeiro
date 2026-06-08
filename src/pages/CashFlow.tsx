@@ -24,7 +24,10 @@ export function CashFlow() {
   const [period, setPeriod] = useState('Mensal');
 
   const fetchData = async () => {
-    if (!user?.tenant_id) return;
+    if (!user?.tenant_id) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     try {
       const { data, error } = await supabase
@@ -33,7 +36,10 @@ export function CashFlow() {
         .eq('tenant_id', user.tenant_id)
         .order('due_date', { ascending: true });
       
-      if (!error) setTransactions(data || []);
+      if (error) throw error;
+      setTransactions(data || []);
+    } catch (err: any) {
+      console.warn('CashFlow fetch warning:', err.message);
     } finally {
       setIsLoading(false);
     }

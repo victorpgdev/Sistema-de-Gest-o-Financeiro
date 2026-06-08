@@ -28,16 +28,22 @@ export function Dashboard() {
   const [showModal, setShowModal] = useState(false);
 
   const fetchDashboardData = async () => {
-    if (!user?.tenant_id) return;
+    if (!user?.tenant_id) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     try {
-      const { data: txs } = await supabase
+      const { data: txs, error: txError } = await supabase
         .from('transactions')
         .select('*')
         .eq('tenant_id', user.tenant_id)
         .order('due_date', { ascending: false });
 
+      if (txError) throw txError;
+
       if (txs) {
+        // ... (cálculos de soma)
         const income = txs.filter(t => t.type === 'income' && t.status === 'paid').reduce((acc, t) => acc + t.amount, 0);
         const expense = txs.filter(t => t.type === 'expense' && t.status === 'paid').reduce((acc, t) => acc + t.amount, 0);
         const pendIncome = txs.filter(t => t.type === 'income' && t.status === 'pending').reduce((acc, t) => acc + t.amount, 0);
@@ -72,6 +78,8 @@ export function Dashboard() {
           }
         });
       }
+    } catch (err: any) {
+      console.warn("Dashboard sync warning (tables missing?):", err.message);
     } finally {
       setIsLoading(false);
     }
