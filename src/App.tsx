@@ -14,6 +14,7 @@ import { Settings }       from './pages/Settings';
 import { Help }           from './pages/Help';
 import { Onboarding }     from './pages/Onboarding';
 import { SecurityCompliance } from './pages/SecurityCompliance';
+import { DiagnosticCenter } from './pages/DiagnosticCenter';
 import { TermsConsent }     from './components/TermsConsent';
 import { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
@@ -46,6 +47,8 @@ function App() {
 
   useEffect(() => {
     initialize();
+    // Expor store para o logger de erros (diagnostic lib)
+    (window as any).authStore = useAuthStore;
   }, [initialize]);
 
   // Detecta primeiro acesso (Onboarding e LGPD)
@@ -92,6 +95,7 @@ function App() {
               <Route path="/settings"       element={<Settings />} />
               <Route path="/help"           element={<Help />} />
               <Route path="/security"       element={<SecurityCompliance />} />
+              <Route path="/diag"           element={<DiagnosticCenter />} />
               
               {/* Gestão Avançada */}
               <Route path="/cobrancas"   element={<PlaceholderPage title="Régua de Cobrança" desc="Módulo de automação de recebimentos." />} />

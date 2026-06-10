@@ -9,7 +9,8 @@ import {
   Building2,
   Users,
   GraduationCap,
-  ShieldCheck
+  ShieldCheck,
+  Activity
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useUIStore, useAuthStore } from '@/store';
@@ -25,6 +26,7 @@ const MENU_ITEMS = [
   { icon: Users, label: 'Equipe e Acessos', path: '/team' },
   { icon: GraduationCap, label: 'Academia PG', path: '/help' },
   { icon: ShieldCheck, label: 'Segurança e LGPD', path: '/security' },
+  { icon: Activity, label: 'Diagnóstico', path: '/diag', masterOnly: true },
 ];
 
 export function Sidebar() {
@@ -56,7 +58,7 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 px-4 space-y-1 mt-4">
-        {MENU_ITEMS.map((item) => (
+        {MENU_ITEMS.filter(item => !item.masterOnly || user?.role === 'MASTER').map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
