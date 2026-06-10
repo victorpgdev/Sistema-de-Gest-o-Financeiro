@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, ChevronDown, Check, Search, Calendar as CalendarIcon, ChevronLeft, ChevronRight, CreditCard, Landmark } from 'lucide-react';
+import { X, ChevronDown, Search, Calendar as CalendarIcon, ChevronLeft, ChevronRight, CreditCard as CreditCardIcon, Landmark } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { cn, masks, parseCurrency } from '@/lib/utils';
 import { useAuthStore } from '@/store';
+import { Transaction, BankAccount, CreditCard } from '@/types';
 
 interface TransactionModalProps {
   onClose: () => void;
-  onSave: (data: any) => void;
+  onSave: (data: Partial<Transaction>) => void;
 }
 
 const INCOME_CATEGORIES = [
@@ -33,8 +34,8 @@ const STATUS_OPTIONS = [
 
 export function TransactionModal({ onClose, onSave }: TransactionModalProps) {
   const { user } = useAuthStore();
-  const [accounts, setAccounts] = useState<any[]>([]);
-  const [cards, setCards] = useState<any[]>([]);
+  const [accounts, setAccounts] = useState<BankAccount[]>([]);
+  const [cards, setCards] = useState<CreditCard[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<'account' | 'card'>('account');
   
   const [isOpenCategories, setIsOpenCategories] = useState(false);
@@ -49,7 +50,7 @@ export function TransactionModal({ onClose, onSave }: TransactionModalProps) {
   const paymentRef = useRef<HTMLDivElement>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<Partial<Transaction>>({
     type: 'income',
     description: '',
     amount: 0,
@@ -65,13 +66,10 @@ export function TransactionModal({ onClose, onSave }: TransactionModalProps) {
     const fetchData = async () => {
       try {
         if (!user?.tenant_id) return;
-        
         const { data: bData } = await supabase.from('bank_accounts').select('*').eq('tenant_id', user.tenant_id);
         const { data: cData } = await supabase.from('credit_cards').select('*').eq('tenant_id', user.tenant_id);
-        
         setAccounts(bData || []);
         setCards(cData || []);
-        
         if (bData && bData.length > 0) {
           setForm(f => ({ ...f, bank_account_id: bData[0].id }));
         } else if (cData && cData.length > 0) {
@@ -94,19 +92,14 @@ export function TransactionModal({ onClose, onSave }: TransactionModalProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleClose = () => {
-    onClose();
-  };
-
   const categories = form.type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
   const filteredCategories = categories.filter(c => c.toLowerCase().includes(searchTerm.toLowerCase()));
 
   const handleSaveInternal = () => {
-    // Normalizar dados: se for conta, limpa cartão. Se for cartão, limpa conta.
-    const finalData = {
+    const finalData: Partial<Transaction> = {
       ...form,
-      bank_account_id: paymentMethod === 'account' ? form.bank_account_id : null,
-      credit_card_id: paymentMethod === 'card' ? form.credit_card_id : null,
+      bank_account_id: paymentMethod === 'account' ? form.bank_account_id : undefined,
+      credit_card_id: paymentMethod === 'card' ? form.credit_card_id : undefined,
     };
     onSave(finalData);
   };
@@ -116,7 +109,7 @@ export function TransactionModal({ onClose, onSave }: TransactionModalProps) {
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-card border rounded-[2.5rem] p-10 w-full max-w-lg shadow-2xl relative max-h-[90vh] overflow-y-auto scrollbar-none">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold uppercase tracking-tight text-slate-700">Novo Lançamento</h2>
-          <button onClick={handleClose} className="p-2 hover:bg-muted rounded-full transition-colors"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="p-2 hover:bg-muted rounded-full transition-colors"><X className="w-5 h-5" /></button>
         </div>
 
         <div className="space-y-4">
@@ -129,14 +122,14 @@ export function TransactionModal({ onClose, onSave }: TransactionModalProps) {
              <div className="space-y-1 relative" ref={statusRef}>
                 <label className="text-[9px] font-black text-muted-foreground uppercase ml-1">Status</label>
                 <div onClick={() => setIsOpenStatus(!isOpenStatus)} className="w-full p-3 bg-muted border rounded-xl cursor-pointer flex items-center justify-between font-bold text-xs">
-                  <span>{STATUS_OPTIONS.find(s => s.id === form.status)?.label}</span>
+                  <span>{STATUS_OPTIONS.find(s => s.id === form.status)?.label || 'Pendente'}</span>
                   <ChevronDown className={cn("w-3 h-3 text-slate-400 transition-transform", isOpenStatus && "rotate-180")} />
                 </div>
                 <AnimatePresence>
                   {isOpenStatus && (
                     <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="absolute z-[120] left-0 right-0 mt-1 bg-white border rounded-2xl shadow-2xl p-1 overflow-hidden">
                       {STATUS_OPTIONS.map(opt => (
-                        <button key={opt.id} onClick={() => { setForm({...form, status: opt.id}); setIsOpenStatus(false); }} className={cn("w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold flex items-center justify-between", form.status === opt.id ? "bg-slate-50 text-blue-600" : "hover:bg-slate-50")}>
+                        <button key={opt.id} onClick={() => { setForm({...form, status: opt.id as any}); setIsOpenStatus(false); }} className={cn("w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold flex items-center justify-between", form.status === opt.id ? "bg-slate-50 text-blue-600" : "hover:bg-slate-50")}>
                           {opt.label}
                         </button>
                       ))}
@@ -186,25 +179,24 @@ export function TransactionModal({ onClose, onSave }: TransactionModalProps) {
             <div className="space-y-1 relative" ref={calendarRef}>
               <label className="text-[9px] font-black text-muted-foreground uppercase ml-1">Vencimento</label>
               <div onClick={() => setIsOpenCalendar(!isOpenCalendar)} className="w-full p-3 bg-muted border rounded-xl cursor-pointer flex items-center justify-between font-bold text-xs hover:border-primary/40 transition-all">
-                <span>{new Date(form.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                <span>{form.due_date ? new Date(form.due_date + 'T12:00:00').toLocaleDateString('pt-BR') : 'Selecione'}</span>
                 <CalendarIcon className="w-3 h-3 text-slate-400" />
               </div>
               <AnimatePresence>
                 {isOpenCalendar && (
                   <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="absolute z-[130] right-0 mt-1 bg-white border rounded-[2rem] shadow-2xl p-4 min-w-[280px]">
-                    <CustomCalendar value={form.due_date} onChange={(d) => { setForm({...form, due_date: d}); setIsOpenCalendar(false); }} />
+                    <CustomCalendar value={form.due_date || ''} onChange={(d) => { setForm({...form, due_date: d}); setIsOpenCalendar(false); }} />
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
           </div>
 
-          {/* SELETOR DE FORMA DE PAGAMENTO (CONTA OU CARTÃO) */}
           <div className="space-y-1 relative" ref={paymentRef}>
             <label className="text-[9px] font-black text-muted-foreground uppercase ml-1">Origem / Pagamento</label>
             <div onClick={() => setIsOpenPayment(!isOpenPayment)} className="w-full p-3 bg-muted border rounded-xl cursor-pointer flex items-center justify-between font-bold text-xs hover:border-primary/40 transition-all">
               <div className="flex items-center gap-2">
-                {paymentMethod === 'account' ? <Landmark className="w-3 h-3 text-primary" /> : <CreditCard className="w-3 h-3 text-primary" />}
+                {paymentMethod === 'account' ? <Landmark className="w-3 h-3 text-primary" /> : <CreditCardIcon className="w-3 h-3 text-primary" />}
                 <span className="truncate">
                   {paymentMethod === 'account' 
                     ? (accounts.find(a => a.id === form.bank_account_id)?.bank_name || "Selecione a Conta...")
@@ -217,15 +209,12 @@ export function TransactionModal({ onClose, onSave }: TransactionModalProps) {
             <AnimatePresence>
               {isOpenPayment && (
                 <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="absolute z-[120] left-0 right-0 mt-1 bg-white border rounded-2xl shadow-2xl p-1 overflow-hidden">
-                  {/* SEÇÃO CONTAS */}
                   {accounts.length > 0 && <div className="px-3 py-1.5 text-[8px] font-black text-slate-400 uppercase tracking-widest border-b">🏦 Minhas Contas</div>}
                   {accounts.map(acc => (
                     <button key={acc.id} onClick={() => { setPaymentMethod('account'); setForm({...form, bank_account_id: acc.id}); setIsOpenPayment(false); }} className={cn("w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold flex items-center justify-between", paymentMethod === 'account' && form.bank_account_id === acc.id ? "bg-slate-50 text-blue-600" : "hover:bg-slate-50")}>
                       {acc.bank_name}
                     </button>
                   ))}
-                  
-                  {/* SEÇÃO CARTÕES (Somente se for Despesa) */}
                   {form.type === 'expense' && cards.length > 0 && <div className="px-3 py-1.5 text-[8px] font-black text-slate-400 uppercase tracking-widest border-b mt-2">💳 Meus Cartões</div>}
                   {form.type === 'expense' && cards.map(card => (
                     <button key={card.id} onClick={() => { setPaymentMethod('card'); setForm({...form, credit_card_id: card.id}); setIsOpenPayment(false); }} className={cn("w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold flex items-center justify-between", paymentMethod === 'card' && form.credit_card_id === card.id ? "bg-slate-50 text-blue-600" : "hover:bg-slate-50")}>
@@ -246,7 +235,7 @@ export function TransactionModal({ onClose, onSave }: TransactionModalProps) {
         </div>
 
         <div className="flex gap-3 mt-6 pt-6 border-t">
-          <button onClick={handleClose} className="flex-1 py-3 border rounded-xl text-[9px] font-black uppercase hover:bg-muted transition-all">Cancelar</button>
+          <button onClick={onClose} className="flex-1 py-3 border rounded-xl text-[9px] font-black uppercase hover:bg-muted transition-all">Cancelar</button>
           <button onClick={handleSaveInternal} className="flex-1 py-3 bg-primary text-white rounded-xl text-[9px] font-black uppercase shadow-lg shadow-primary/20 hover:scale-105 transition-all">Salvar Lançamento</button>
         </div>
       </motion.div>
@@ -255,16 +244,14 @@ export function TransactionModal({ onClose, onSave }: TransactionModalProps) {
 }
 
 function CustomCalendar({ value, onChange }: { value: string, onChange: (d: string) => void }) {
-  const [curr, setCurr] = useState(new Date(value + 'T12:00:00'));
+  const [curr, setCurr] = useState(new Date((value || new Date().toISOString().split('T')[0]) + 'T12:00:00'));
   const month = curr.getMonth();
   const year = curr.getFullYear();
-  
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDay = new Date(year, month, 1).getDay();
   const days = [];
   for (let i = 0; i < firstDay; i++) days.push(null);
   for (let i = 1; i <= daysInMonth; i++) days.push(i);
-
   const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
   return (

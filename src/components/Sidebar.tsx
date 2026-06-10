@@ -36,12 +36,18 @@ export function Sidebar() {
   return (
     <motion.aside
       initial={false}
-      animate={{ width: isSidebarOpen ? 280 : 80 }}
+      animate={{ 
+        width: isSidebarOpen ? 280 : 80,
+        x: 0 // Mantém visível em desktop
+      }}
       className={cn(
-        "bg-card border-r flex flex-col h-screen sticky top-0 transition-all duration-300 ease-in-out z-20",
-        !isSidebarOpen && "items-center"
+        "bg-card border-r flex flex-col h-screen sticky top-0 transition-all duration-300 ease-in-out z-50",
+        "fixed md:sticky left-0", // Floating on mobile, sticky on desktop
+        !isSidebarOpen && "md:w-20 -translate-x-full md:translate-x-0", // Hidden on mobile if closed
+        isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
       )}
     >
+
       <div className="p-6 flex items-center justify-between">
         {isSidebarOpen ? (
           <div className="flex items-center gap-2">

@@ -6,13 +6,27 @@ import { useUIStore } from '@/store';
 import { cn } from '@/lib/utils';
 
 export function DashboardLayout() {
-  const { isSidebarOpen } = useUIStore();
+  const { isSidebarOpen, toggleSidebar } = useUIStore();
+
   const location = useLocation();
 
   return (
     <div className="flex h-screen bg-[#F8FAFC] overflow-hidden">
-      {/* Sidebar - Fixa lateralmente */}
+      {/* Overlay para Mobile */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }}
+            onClick={toggleSidebar}
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[45] md:hidden"
+          />
+        )}
+      </AnimatePresence>
+
       <Sidebar />
+
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         {/* Header - Fixo no topo */}

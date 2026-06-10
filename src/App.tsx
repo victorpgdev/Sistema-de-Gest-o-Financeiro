@@ -1,25 +1,29 @@
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { DashboardLayout } from './layouts/DashboardLayout';
-import { Dashboard }      from './pages/Dashboard';
-import { Login }          from './pages/Login';
-import { MasterDashboard } from './pages/MasterDashboard';
-import { BankAccounts }   from './pages/BankAccounts';
-import { BankReconciliation } from './pages/BankReconciliation';
-import { Transactions }   from './pages/Transactions';
-import { CreditCards }    from './pages/CreditCards';
-import { CashFlow }       from './pages/CashFlow';
-import { Reports }        from './pages/Reports';
-import { Team }           from './pages/Team';
-import { Settings }       from './pages/Settings';
-import { Help }           from './pages/Help';
-import { Onboarding }     from './pages/Onboarding';
-import { SecurityCompliance } from './pages/SecurityCompliance';
-import { DiagnosticCenter } from './pages/DiagnosticCenter';
-import { TermsConsent }     from './components/TermsConsent';
-import { useState, useEffect } from 'react';
+import { Loader2, ShieldAlert } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { useAuthStore } from './store';
-import { Loader2, ShieldAlert } from 'lucide-react';
+
+// Lazy Loaded Pages
+const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
+const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
+const MasterDashboard = lazy(() => import('./pages/MasterDashboard').then(m => ({ default: m.MasterDashboard })));
+const BankAccounts = lazy(() => import('./pages/BankAccounts').then(m => ({ default: m.BankAccounts })));
+const BankReconciliation = lazy(() => import('./pages/BankReconciliation').then(m => ({ default: m.BankReconciliation })));
+const Transactions = lazy(() => import('./pages/Transactions').then(m => ({ default: m.Transactions })));
+const CreditCards = lazy(() => import('./pages/CreditCards').then(m => ({ default: m.CreditCards })));
+const CashFlow = lazy(() => import('./pages/CashFlow').then(m => ({ default: m.CashFlow })));
+const Reports = lazy(() => import('./pages/Reports').then(m => ({ default: m.Reports })));
+const Team = lazy(() => import('./pages/Team').then(m => ({ default: m.Team })));
+const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })));
+const Help = lazy(() => import('./pages/Help').then(m => ({ default: m.Help })));
+const Onboarding = lazy(() => import('./pages/Onboarding').then(m => ({ default: m.Onboarding })));
+const SecurityCompliance = lazy(() => import('./pages/SecurityCompliance').then(m => ({ default: m.SecurityCompliance })));
+const DiagnosticCenter = lazy(() => import('./pages/DiagnosticCenter').then(m => ({ default: m.DiagnosticCenter })));
+
+import { TermsConsent } from './components/TermsConsent';
+
 
 function App() {
   const { isAuthenticated, isLoading, initialize, tenant, user } = useAuthStore();
@@ -78,38 +82,44 @@ function App() {
 
   return (
     <BrowserRouter>
-      <Routes>
-        {isAuthenticated ? (
-          isAccountBlocked ? (
-            <Route path="*" element={<BlockedAccountScreen message={user?.status === 'banned' ? 'Sua conta individual foi suspensa pelo administrador.' : 'A licença desta empresa expirou ou está suspensa.'} />} />
+      <Suspense fallback={
+        <div className="h-screen w-screen flex items-center justify-center bg-background">
+          <Loader2 className="w-10 h-10 text-primary animate-spin" />
+        </div>
+      }>
+        <Routes>
+          {isAuthenticated ? (
+            isAccountBlocked ? (
+              <Route path="*" element={<BlockedAccountScreen message={user?.status === 'banned' ? 'Sua conta individual foi suspensa pelo administrador.' : 'A licença desta empresa expirou ou está suspensa.'} />} />
+            ) : (
+              <Route element={<DashboardLayout />}>
+                <Route path="/"          element={<Dashboard />} />
+                <Route path="/master"    element={<MasterDashboard />} />
+                <Route path="/accounts"       element={<BankAccounts />} />
+                <Route path="/cards"          element={<CreditCards />} />
+                <Route path="/transactions"   element={<Transactions />} />
+                <Route path="/cash-flow"      element={<CashFlow />} />
+                <Route path="/reports"        element={<Reports />} />
+                <Route path="/team"           element={<Team />} />
+                <Route path="/settings"       element={<Settings />} />
+                <Route path="/help"           element={<Help />} />
+                <Route path="/security"       element={<SecurityCompliance />} />
+                <Route path="/diag"           element={<DiagnosticCenter />} />
+                
+                {/* Gestão Avançada */}
+                <Route path="/cobrancas"   element={<PlaceholderPage title="Régua de Cobrança" desc="Módulo de automação de recebimentos." />} />
+                <Route path="/metas"       element={<PlaceholderPage title="Gestão de Metas" desc="Definição e acompanhamento de objetivos financeiros." />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Route>
+            )
           ) : (
-            <Route element={<DashboardLayout />}>
-              <Route path="/"          element={<Dashboard />} />
-              <Route path="/master"    element={<MasterDashboard />} />
-              <Route path="/accounts"       element={<BankAccounts />} />
-              <Route path="/cards"          element={<CreditCards />} />
-              <Route path="/transactions"   element={<Transactions />} />
-              <Route path="/cash-flow"      element={<CashFlow />} />
-              <Route path="/reports"        element={<Reports />} />
-              <Route path="/team"           element={<Team />} />
-              <Route path="/settings"       element={<Settings />} />
-              <Route path="/help"           element={<Help />} />
-              <Route path="/security"       element={<SecurityCompliance />} />
-              <Route path="/diag"           element={<DiagnosticCenter />} />
-              
-              {/* Gestão Avançada */}
-              <Route path="/cobrancas"   element={<PlaceholderPage title="Régua de Cobrança" desc="Módulo de automação de recebimentos." />} />
-              <Route path="/metas"       element={<PlaceholderPage title="Gestão de Metas" desc="Definição e acompanhamento de objetivos financeiros." />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Route>
-          )
-        ) : (
-          <>
-            <Route path="/login" element={<Login />} />
-            <Route path="*"      element={<Navigate to="/login" replace />} />
-          </>
-        )}
-      </Routes>
+            <>
+              <Route path="/login" element={<Login />} />
+              <Route path="*"      element={<Navigate to="/login" replace />} />
+            </>
+          )}
+        </Routes>
+      </Suspense>
 
       {/* Trava LGPD: Aceite de Termos Obrigatório */}
       {isAuthenticated && showConsent && (

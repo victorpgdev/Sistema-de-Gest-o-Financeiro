@@ -12,18 +12,8 @@ import { formatCurrency, cn, masks, parseCurrency } from '@/lib/utils';
 import { useAuthStore } from '@/store';
 import { logActivity } from '@/lib/audit';
 import { TransactionModal } from '@/components/TransactionModal';
+import { Transaction } from '@/types';
 
-interface Transaction {
-  id: string;
-  description: string;
-  amount: number;
-  type: 'income' | 'expense';
-  status: 'paid' | 'pending' | 'overdue' | 'canceled';
-  due_date: string;
-  category: string;
-  is_recurring?: boolean;
-  bank_account_id?: string;
-}
 
 export function Transactions() {
   const { user } = useAuthStore();

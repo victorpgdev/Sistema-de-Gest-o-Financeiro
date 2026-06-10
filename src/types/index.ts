@@ -38,11 +38,15 @@ export interface Transaction {
   due_date: string;
   payment_date?: string;
   status: 'paid' | 'pending' | 'overdue' | 'cancelled';
-  category_id: string;
-  bank_account_id: string;
+  category_id?: string;
+  category?: string; // Temporário para transição
+  bank_account_id?: string;
+  credit_card_id?: string;
   contact_id?: string;
   cost_center_id?: string;
   attachment_url?: string;
+  is_recurring?: boolean;
+  recurrence_period?: 'monthly' | 'weekly' | 'yearly';
   observations?: string;
 }
 
@@ -54,7 +58,7 @@ export interface BankAccount {
   account_number: string;
   type: 'checking' | 'savings' | 'investment' | 'cash';
   initial_balance: number;
-  current_balance: number;
+  balance: number;
 }
 
 export interface Category {
@@ -111,3 +115,16 @@ export interface LegalProcess {
   client_id: string;
   honorary_value: number;
 }
+
+export interface CreditCard {
+  id: string;
+  tenant_id: string;
+  card_name: string;
+  bank_name: string;
+  limit_amount: number;
+  current_spent: number;
+  due_day: number;
+  closing_day: number;
+  created_at: string;
+}
+

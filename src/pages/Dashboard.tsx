@@ -13,17 +13,25 @@ import {
   Tooltip, ResponsiveContainer
 } from 'recharts';
 import { TransactionModal } from '@/components/TransactionModal';
+import { Transaction, BankAccount } from '@/types';
 import { logActivity } from '@/lib/audit';
 
 export function Dashboard() {
   const { user } = useAuthStore();
-  const [data, setData] = useState<any>({
+  const [data, setData] = useState<{
+    totals: { income: number; expense: number; balance: number };
+    pending: { income: number; expense: number };
+    recentTransactions: Transaction[];
+    chartData: any[];
+    insights: { topCategory: string; topCategoryValue: number; healthScore: number };
+  }>({
     totals: { income: 0, expense: 0, balance: 0 },
     pending: { income: 0, expense: 0 },
     recentTransactions: [],
     chartData: [],
     insights: { topCategory: 'Analisando...', topCategoryValue: 0, healthScore: 0 }
   });
+
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
@@ -44,15 +52,16 @@ export function Dashboard() {
       if (txError) throw txError;
 
       if (txs) {
-        const income = txs.filter(t => t.type === 'income' && t.status === 'paid').reduce((acc, t) => acc + t.amount, 0);
-        const expense = txs.filter(t => t.type === 'expense' && t.status === 'paid').reduce((acc, t) => acc + t.amount, 0);
-        const pendIncome = txs.filter(t => t.type === 'income' && t.status === 'pending').reduce((acc, t) => acc + t.amount, 0);
-        const pendExpense = txs.filter(t => t.type === 'expense' && t.status === 'pending').reduce((acc, t) => acc + t.amount, 0);
+        const transactions = txs as Transaction[];
+        const income = transactions.filter(t => t.type === 'income' && t.status === 'paid').reduce((acc, t) => acc + t.amount, 0);
+        const expense = transactions.filter(t => t.type === 'expense' && t.status === 'paid').reduce((acc, t) => acc + t.amount, 0);
+        const pendIncome = transactions.filter(t => t.type === 'income' && t.status === 'pending').reduce((acc, t) => acc + t.amount, 0);
+        const pendExpense = transactions.filter(t => t.type === 'expense' && t.status === 'pending').reduce((acc, t) => acc + t.amount, 0);
 
-        const chartMap: any = {};
+        const chartMap: Record<string, { date: string; entrada: number; saida: number }> = {};
         const catMap: Record<string, number> = {};
         
-        txs.forEach(t => {
+        transactions.forEach(t => {
           const date = new Date(t.due_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
           if (!chartMap[date]) chartMap[date] = { date, entrada: 0, saida: 0 };
           
@@ -60,7 +69,8 @@ export function Dashboard() {
             chartMap[date].entrada += t.amount;
           } else {
             chartMap[date].saida += t.amount;
-            catMap[t.category || 'Geral'] = (catMap[t.category || 'Geral'] || 0) + t.amount;
+            const category = t.category_id || 'Geral';
+            catMap[category] = (catMap[category] || 0) + t.amount;
           }
         });
 
@@ -69,11 +79,11 @@ export function Dashboard() {
         setData({
           totals: { income, expense, balance: income - expense },
           pending: { income: pendIncome, expense: pendExpense },
-          recentTransactions: txs.slice(0, 4),
+          recentTransactions: transactions.slice(0, 4),
           chartData: Object.values(chartMap).reverse().slice(-10),
           insights: {
-            topCategory: topCat[0],
-            topCategoryValue: topCat[1],
+            topCategory: String(topCat[0]),
+            topCategoryValue: Number(topCat[1]),
             healthScore: income > 0 ? Math.min(100, Math.round(((income - expense) / income) * 100)) : 0
           }
         });
@@ -85,8 +95,10 @@ export function Dashboard() {
     }
   };
 
-  const handleSave = async (formData: any) => {
-    const finalTenantId = user?.tenant_id || 'd196ba2e-9671-4d8f-9862-7345f380635b'; // Fallback to a known stable ID
+  const handleSave = async (formData: Partial<Transaction>) => {
+    const finalTenantId = user?.tenant_id;
+    if (!finalTenantId) return;
+
     try {
       const { error } = await supabase.from('transactions').insert([{
         ...formData,
@@ -98,7 +110,7 @@ export function Dashboard() {
       if (formData.status === 'paid' && formData.bank_account_id) {
         const { data: account } = await supabase.from('bank_accounts').select('balance').eq('id', formData.bank_account_id).single();
         if (account) {
-          const newBalance = formData.type === 'income' ? account.balance + formData.amount : account.balance - formData.amount;
+          const newBalance = formData.type === 'income' ? Number(account.balance) + Number(formData.amount) : Number(account.balance) - Number(formData.amount);
           await supabase.from('bank_accounts').update({ balance: newBalance }).eq('id', formData.bank_account_id);
         }
       } else if (formData.status === 'paid' && formData.credit_card_id) {
@@ -124,6 +136,7 @@ export function Dashboard() {
       setNotification({ type: 'error', message: `Erro ao salvar: ${err.message}` });
     }
   };
+
 
   useEffect(() => { if (user) fetchDashboardData(); }, [user]);
   useEffect(() => {

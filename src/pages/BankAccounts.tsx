@@ -12,14 +12,8 @@ import { GLOBAL_BANKS } from '@/lib/banks';
 import { checkPlanLimit, logAuditAction, PLAN_LIMITS } from '@/lib/limits';
 import { security } from '@/lib/security';
 
-interface BankAccount {
-  id: string;
-  bank_name: string;
-  type: string;
-  balance: number;
-  account_number: string;
-  agency: string;
-}
+import { BankAccount } from '@/types';
+
 
 export function BankAccounts() {
   const { user, tenant } = useAuthStore();

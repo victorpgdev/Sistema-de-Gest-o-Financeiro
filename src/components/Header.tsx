@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { 
    Bell, Moon, Sun, Search, User, LogOut, Settings, 
   ChevronDown, CheckCircle2, Info, AlertTriangle, 
-  CheckCheck
+  CheckCheck, Menu, X as CloseIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
@@ -22,7 +22,9 @@ interface Notification {
 export function Header() {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
+  const { toggleSidebar } = useUIStore();
   const [showNotifications, setShowNotifications] = useState(false);
+
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
@@ -70,7 +72,15 @@ export function Header() {
   };
 
   return (
-    <header className="h-20 border-b bg-background/80 backdrop-blur-md px-8 flex items-center justify-between sticky top-0 z-40">
+    <header className="h-20 border-b bg-background/80 backdrop-blur-md px-4 md:px-8 flex items-center justify-between sticky top-0 z-40">
+      {/* Mobile Toggle */}
+      <button 
+        onClick={toggleSidebar}
+        className="p-2 hover:bg-muted rounded-xl md:hidden mr-2"
+      >
+        <Menu className="w-6 h-6 text-muted-foreground" />
+      </button>
+
       <div className="relative w-full max-w-md hidden md:block">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <input 
