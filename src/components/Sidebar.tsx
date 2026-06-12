@@ -21,13 +21,17 @@ const MENU_ITEMS = [
   { icon: LayoutDashboard, label: 'Painel Geral', path: '/' },
   { icon: BarChart3, label: 'Fluxo de Caixa', path: '/cash-flow' },
   { icon: ArrowUpRight, label: 'Movimentações', path: '/transactions' },
+  { icon: Users, label: 'Contatos', path: '/contacts' },
   { icon: Wallet, label: 'Contas Bancárias', path: '/accounts' },
   { icon: CreditCard, label: 'Meus Cartões', path: '/cards' },
   { icon: Users, label: 'Equipe e Acessos', path: '/team' },
+
   { icon: GraduationCap, label: 'Academia PG', path: '/help' },
   { icon: ShieldCheck, label: 'Segurança e LGPD', path: '/security' },
+  { icon: ShieldCheck, label: 'Auditoria', path: '/logs' },
   { icon: Activity, label: 'Diagnóstico', path: '/diag', masterOnly: true },
 ];
+
 
 export function Sidebar() {
   const { isSidebarOpen, toggleSidebar } = useUIStore();

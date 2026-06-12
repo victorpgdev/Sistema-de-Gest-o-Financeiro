@@ -19,8 +19,12 @@ const Team = lazy(() => import('./pages/Team').then(m => ({ default: m.Team })))
 const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })));
 const Help = lazy(() => import('./pages/Help').then(m => ({ default: m.Help })));
 const Onboarding = lazy(() => import('./pages/Onboarding').then(m => ({ default: m.Onboarding })));
+const Contacts = lazy(() => import('./pages/Contacts').then(m => ({ default: m.Contacts })));
 const SecurityCompliance = lazy(() => import('./pages/SecurityCompliance').then(m => ({ default: m.SecurityCompliance })));
 const DiagnosticCenter = lazy(() => import('./pages/DiagnosticCenter').then(m => ({ default: m.DiagnosticCenter })));
+const AuditLogs = lazy(() => import('./pages/AuditLogs').then(m => ({ default: m.AuditLogs })));
+
+
 
 import { TermsConsent } from './components/TermsConsent';
 
@@ -105,7 +109,9 @@ function App() {
                 <Route path="/master"    element={<MasterDashboard />} />
                 <Route path="/accounts"       element={<BankAccounts />} />
                 <Route path="/cards"          element={<CreditCards />} />
+                <Route path="/contacts"       element={<Contacts />} />
                 <Route path="/transactions"   element={<Transactions />} />
+
                 <Route path="/cash-flow"      element={<CashFlow />} />
                 <Route path="/reports"        element={<Reports />} />
                 <Route path="/team"           element={<Team />} />
@@ -113,11 +119,13 @@ function App() {
                 <Route path="/help"           element={<Help />} />
                 <Route path="/security"       element={<SecurityCompliance />} />
                 <Route path="/diag"           element={<DiagnosticCenter />} />
+                <Route path="/logs"           element={<AuditLogs />} />
                 
                 {/* Gestão Avançada */}
                 <Route path="/cobrancas"   element={<PlaceholderPage title="Régua de Cobrança" desc="Módulo de automação de recebimentos." />} />
                 <Route path="/metas"       element={<PlaceholderPage title="Gestão de Metas" desc="Definição e acompanhamento de objetivos financeiros." />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
+
               </Route>
             )
           ) : (
