@@ -34,7 +34,6 @@ import { TermsConsent } from './components/TermsConsent';
 function App() {
   const { isAuthenticated, isLoading, initialize, tenant, user } = useAuthStore();
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [showConsent, setShowConsent] = useState(false);
 
   useEffect(() => {
     // Bloquear Menu de Contexto (Botão Direito) - Native Feel
@@ -68,22 +67,9 @@ function App() {
   }, [user]);
 
 
-  // Detecta primeiro acesso (Onboarding e LGPD)
-
+  // Detecta primeiro acesso (Onboarding)
   useEffect(() => {
     if (user && user.role !== 'MASTER') {
-      // 1. Verifica Consentimento LGPD
-      // Prioridade: Banco de Dados (user.lgpd_accepted), Fallback: Cache Local
-      const acceptedInDB = user?.lgpd_accepted === true;
-      const acceptedInLocal = localStorage.getItem('pg_lgpd_consent') === 'true';
-
-      if (acceptedInDB && !acceptedInLocal) {
-        localStorage.setItem('pg_lgpd_consent', 'true');
-      }
-
-      setShowConsent(!(acceptedInDB || acceptedInLocal));
-
-      // 2. Verifica Onboarding
       supabase.from('profiles').select('onboarding_completed').eq('id', user.id).single()
         .then(({ data }) => {
           if (data && !data.onboarding_completed) setShowOnboarding(true);
@@ -147,13 +133,8 @@ function App() {
         </Routes>
       </Suspense>
 
-      {/* Trava LGPD: Aceite de Termos Obrigatório */}
-      {isAuthenticated && showConsent && (
-        <TermsConsent user={user} onAccept={() => setShowConsent(false)} />
-      )}
-
-      {/* Onboarding: aparece 1x no primeiro acesso após aceite dos termos */}
-      {isAuthenticated && !showConsent && showOnboarding && (
+      {/* Onboarding: aparece 1x no primeiro acesso */}
+      {isAuthenticated && showOnboarding && (
         <Onboarding onComplete={() => setShowOnboarding(false)} />
       )}
     </BrowserRouter>
