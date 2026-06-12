@@ -87,21 +87,33 @@ export const useAuthStore = create<AuthState>((set) => ({
             let userTenantId = profile.tenant_id;
             let userTenant = profile.tenants;
 
-            // AUTO-PROVISIONING: Se não tem empresa, cria um espaço pessoal automaticamente
+            // AUTO-PROVISIONING: Se não tem empresa, tenta encontrar uma ou cria um espaço pessoal
             if (!userTenantId) {
-              const { data: newTenant, error: tError } = await supabase
-                .from('tenants')
-                .insert([{ name: 'Meu Espaço Pessoal', plan: 'Basic' }])
-                .select()
-                .single();
+              // 1. Tenta ver se já existe algum tenant (Espaço) no sistema pra reaproveitar
+              const { data: existingTenants } = await supabase.from('tenants').select('id').limit(1);
               
-              if (!tError && newTenant) {
-                userTenantId = newTenant.id;
-                userTenant = newTenant;
+              if (existingTenants && existingTenants.length > 0) {
+                userTenantId = existingTenants[0].id;
+              } else {
+                // 2. Se não existe nada, cria o primeiro
+                const { data: newTenant } = await supabase
+                  .from('tenants')
+                  .insert([{ name: 'Meu Espaço Pessoal', plan: 'Basic' }])
+                  .select()
+                  .single();
+                
+                if (newTenant) userTenantId = newTenant.id;
+              }
+
+              if (userTenantId) {
                 // Atualiza o perfil para vincular permanentemente
                 await supabase.from('profiles').update({ tenant_id: userTenantId }).eq('id', profile.id);
+                // Recarrega o tenant para o estado
+                const { data: freshTenant } = await supabase.from('tenants').select('*').eq('id', userTenantId).single();
+                userTenant = freshTenant;
               }
             }
+
 
             const userObj: User = {
               id: profile.id,
@@ -150,18 +162,25 @@ export const useAuthStore = create<AuthState>((set) => ({
             let userTenant = profile.tenants;
 
             if (!userTenantId) {
-              const { data: newTenant } = await supabase
-                .from('tenants')
-                .insert([{ name: 'Meu Espaço Pessoal', plan: 'Basic' }])
-                .select()
-                .single();
+              const { data: existingTenants } = await supabase.from('tenants').select('id').limit(1);
+              if (existingTenants && existingTenants.length > 0) {
+                userTenantId = existingTenants[0].id;
+              } else {
+                const { data: newTenant } = await supabase
+                  .from('tenants')
+                  .insert([{ name: 'Meu Espaço Pessoal', plan: 'Basic' }])
+                  .select()
+                  .single();
+                if (newTenant) userTenantId = newTenant.id;
+              }
               
-              if (newTenant) {
-                userTenantId = newTenant.id;
-                userTenant = newTenant;
+              if (userTenantId) {
                 await supabase.from('profiles').update({ tenant_id: userTenantId }).eq('id', profile.id);
+                const { data: freshTenant } = await supabase.from('tenants').select('*').eq('id', userTenantId).single();
+                userTenant = freshTenant;
               }
             }
+
 
             const userObj: User = {
               id: profile.id,
