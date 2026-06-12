@@ -53,42 +53,54 @@ export function BankAccounts() {
   }, [user, notification]);
 
   const handleSave = async (formData: any) => {
-    if (!user?.tenant_id) {
-      setNotification({ type: 'error', message: 'Erro: Usuário sem empresa vinculada.' });
+    let tenantId = user?.tenant_id;
+
+    // Auto-provisionamento: se não tem espaço, cria um na hora
+    if (!tenantId && user?.id) {
+      setNotification({ type: 'error', message: '⏳ Configurando seu espaço pessoal...' });
+      
+      // Tenta encontrar um tenant existente no banco
+      const { data: existing } = await supabase.from('tenants').select('id').limit(1);
+      if (existing && existing.length > 0) {
+        tenantId = existing[0].id;
+      } else {
+        // Cria um novo espaço pessoal
+        const { data: newSpace } = await supabase
+          .from('tenants')
+          .insert([{ name: 'Meu Espaço Pessoal', plan: 'Basic', status: 'active' }])
+          .select().single();
+        if (newSpace) tenantId = newSpace.id;
+      }
+
+      // Vincula o usuário permanentemente ao espaço
+      if (tenantId) {
+        await supabase.from('profiles').update({ tenant_id: tenantId }).eq('id', user.id);
+      }
+    }
+
+    if (!tenantId) {
+      setNotification({ type: 'error', message: 'Erro: Não foi possível criar seu espaço. Rode o SQL no Supabase e tente novamente.' });
       return;
     }
 
     const sanitizedData = {
       ...formData,
       bank_name: security.sanitize(formData.bank_name),
-      agency: security.sanitize(formData.agency),
-      account_number: security.sanitize(formData.account_number)
+      agency: security.sanitize(formData.agency || ''),
+      account_number: security.sanitize(formData.account_number || '')
     };
-
-    const userPlan = tenant?.plan || 'Basic';
-    const canAdd = await checkPlanLimit(user.tenant_id, userPlan, 'bankAccounts');
-    
-    if (!canAdd) {
-      const limit = PLAN_LIMITS[userPlan as keyof typeof PLAN_LIMITS]?.bankAccounts;
-      setNotification({ 
-        type: 'error', 
-        message: `Limite de Plano: O plano ${userPlan} permite apenas ${limit} conta(s). Faça upgrade!` 
-      });
-      return;
-    }
 
     setIsLoading(true);
     try {
       const { error } = await supabase.from('bank_accounts').insert([{
         ...sanitizedData,
-        tenant_id: user.tenant_id
+        tenant_id: tenantId
       }]);
 
       if (error) {
         setNotification({ type: 'error', message: `Erro ao salvar: ${error.message}` });
       } else {
-        await logAuditAction(user.tenant_id, user.id, 'CREATE_BANK_ACCOUNT', { bank: sanitizedData.bank_name });
-        setNotification({ type: 'success', message: 'Conta cadastrada com sucesso!' });
+        setNotification({ type: 'success', message: '✅ Conta cadastrada com sucesso!' });
         fetchAccounts();
         setShowModal(false);
       }

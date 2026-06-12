@@ -1,15 +1,13 @@
 import { useState, useEffect } from 'react';
 import { 
-  Plus, Search, Wallet as CardIcon, MoreVertical, 
-  Trash2, CheckCircle2, X, Loader2, Landmark, 
-  AlertCircle, Calendar, Shield, ChevronDown
+  Plus, Trash2, CheckCircle2, X, Loader2, Landmark, 
+  AlertCircle, Wallet as CardIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency, cn } from '@/lib/utils';
 import { useAuthStore } from '@/store';
 import { GLOBAL_BANKS } from '@/lib/banks';
-import { checkPlanLimit, logAuditAction, PLAN_LIMITS } from '@/lib/limits';
 import { security } from '@/lib/security';
 
 interface CreditCard {
@@ -23,7 +21,7 @@ interface CreditCard {
 }
 
 export function CreditCards() {
-  const { user, tenant } = useAuthStore();
+  const { user } = useAuthStore();
   const [cards, setCards] = useState<CreditCard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -31,15 +29,11 @@ export function CreditCards() {
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
   const fetchCards = async () => {
-    if (!user?.tenant_id && user?.role !== 'MASTER') {
-      setIsLoading(false);
-      return;
-    }
     setIsLoading(true);
     try {
-      const query = supabase.from('credit_cards').select('*');
+      let query = supabase.from('credit_cards').select('*');
       if (user?.tenant_id) {
-        query.eq('tenant_id', user.tenant_id);
+        query = query.eq('tenant_id', user.tenant_id);
       }
       const { data, error } = await query.order('card_name');
       if (error) throw error;
@@ -53,48 +47,65 @@ export function CreditCards() {
 
   useEffect(() => { 
     if (user) fetchCards(); 
+  }, [user]);
+
+  useEffect(() => {
     if (notification) {
-      const timer = setTimeout(() => setNotification(null), 3000);
+      const timer = setTimeout(() => setNotification(null), 3500);
       return () => clearTimeout(timer);
     }
-  }, [user, notification]);
+  }, [notification]);
 
-  const handleSave = async (formData: any) => {
-    if (!user?.tenant_id) {
-      setNotification({ type: 'error', message: 'Erro: Usuário sem empresa vinculada.' });
-      return;
+  const getOrCreateTenant = async (): Promise<string | null> => {
+    if (user?.tenant_id) return user.tenant_id;
+    if (!user?.id) return null;
+
+    // Tenta encontrar um tenant existente
+    const { data: existing } = await supabase.from('tenants').select('id').limit(1);
+    if (existing && existing.length > 0) {
+      const tid = existing[0].id;
+      await supabase.from('profiles').update({ tenant_id: tid }).eq('id', user.id);
+      return tid;
     }
 
-    const sanitizedData = {
-      ...formData,
-      card_name: security.sanitize(formData.card_name),
-      bank_name: security.sanitize(formData.bank_name)
-    };
+    // Cria um espaço pessoal
+    const { data: newSpace } = await supabase
+      .from('tenants')
+      .insert([{ name: 'Meu Espaço Pessoal', plan: 'Basic', status: 'active' }])
+      .select().single();
 
-    const userPlan = tenant?.plan || 'Basic';
-    const canAdd = await checkPlanLimit(user.tenant_id, userPlan, 'creditCards');
-    
-    if (!canAdd) {
-      const limit = PLAN_LIMITS[userPlan as keyof typeof PLAN_LIMITS]?.creditCards;
-      setNotification({ 
-        type: 'error', 
-        message: `Limite atingido! O plano ${userPlan} permite apenas ${limit} cartão(ões).` 
-      });
+    if (newSpace) {
+      await supabase.from('profiles').update({ tenant_id: newSpace.id }).eq('id', user.id);
+      return newSpace.id;
+    }
+
+    return null;
+  };
+
+  const handleSave = async (formData: any) => {
+    const tenantId = await getOrCreateTenant();
+
+    if (!tenantId) {
+      setNotification({ type: 'error', message: 'Erro: Execute o SQL de permissões no Supabase.' });
       return;
     }
 
     setIsLoading(true);
     try {
       const { error } = await supabase.from('credit_cards').insert([{
-        ...sanitizedData,
-        tenant_id: user.tenant_id
+        card_name: security.sanitize(formData.card_name),
+        bank_name: security.sanitize(formData.bank_name || ''),
+        limit_amount: formData.limit_amount || 0,
+        current_spent: formData.current_spent || 0,
+        closing_day: formData.closing_day || 5,
+        due_day: formData.due_day || 10,
+        tenant_id: tenantId
       }]);
 
       if (error) {
-        setNotification({ type: 'error', message: `Erro ao salvar: ${error.message}` });
+        setNotification({ type: 'error', message: `Erro: ${error.message}` });
       } else {
-        await logAuditAction(user.tenant_id, user.id, 'CREATE_CREDIT_CARD', { card: sanitizedData.card_name });
-        setNotification({ type: 'success', message: 'Cartão cadastrado com sucesso!' });
+        setNotification({ type: 'success', message: '✅ Cartão cadastrado com sucesso!' });
         fetchCards();
         setShowModal(false);
       }
@@ -108,10 +119,9 @@ export function CreditCards() {
     try {
       const { error } = await supabase.from('credit_cards').delete().eq('id', id);
       if (error) throw error;
-      await logAuditAction(user?.tenant_id!, user?.id!, 'DELETE_CREDIT_CARD', { id });
-      setNotification({ type: 'success', message: '🔄 Cartão removido com sucesso.' });
-      fetchCards();
+      setNotification({ type: 'success', message: '🗑️ Cartão removido com sucesso.' });
       setConfirmDelete(null);
+      fetchCards();
     } catch (err: any) {
       setNotification({ type: 'error', message: err.message });
     } finally {
@@ -175,7 +185,7 @@ export function CreditCards() {
             
             <div className="space-y-1 relative mb-6">
               <h3 className="font-black text-xl text-slate-800 uppercase tracking-tight">{card.card_name}</h3>
-              <p className="text-[10px] font-black text-slate-400 flex items-center gap-2 uppercase tracking-widest leading-none">
+              <p className="text-[10px] font-black text-slate-400 flex items-center gap-2 uppercase tracking-widest">
                  <Landmark className="w-3 h-3" /> {card.bank_name}
               </p>
             </div>
@@ -183,23 +193,21 @@ export function CreditCards() {
             <div className="mt-auto space-y-4 pt-6 border-t border-slate-100 relative">
                <div className="flex justify-between items-end">
                   <div className="space-y-1">
-                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Disponível</p>
-                     <p className="font-black text-lg text-emerald-600 tracking-tight leading-none">{formatCurrency(card.limit_amount - card.current_spent)}</p>
+                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Disponível</p>
+                     <p className="font-black text-lg text-emerald-600 tracking-tight">{formatCurrency(card.limit_amount - card.current_spent)}</p>
                   </div>
                   <div className="text-right space-y-1">
-                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Fatura</p>
-                     <p className="font-black text-lg text-rose-500 tracking-tight leading-none">{formatCurrency(card.current_spent)}</p>
+                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fatura</p>
+                     <p className="font-black text-lg text-rose-500 tracking-tight">{formatCurrency(card.current_spent)}</p>
                   </div>
                </div>
                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                   <motion.div 
-                    initial={{ width: 0 }} animate={{ width: `${(card.current_spent / card.limit_amount) * 100}%` }}
-                    className={cn("h-full rounded-full transition-all", (card.current_spent / card.limit_amount) > 0.8 ? "bg-rose-500" : "bg-primary")} 
+                    initial={{ width: 0 }} animate={{ width: `${Math.min((card.current_spent / (card.limit_amount || 1)) * 100, 100)}%` }}
+                    className={cn("h-full rounded-full", (card.current_spent / (card.limit_amount || 1)) > 0.8 ? "bg-rose-500" : "bg-primary")} 
                   />
                </div>
-               <div className="flex justify-between text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                  <span>Vencimento dia {card.due_day}</span>
-               </div>
+               <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Vencimento dia {card.due_day}</p>
             </div>
           </motion.div>
         ))}
@@ -229,8 +237,8 @@ export function CreditCards() {
               <h3 className="text-xl font-bold text-slate-800 mb-2">Excluir Cartão?</h3>
               <p className="text-sm text-slate-500 mb-8">Deseja remover o cartão "{confirmDelete.card_name}"? Esta ação é irreversível.</p>
               <div className="flex gap-3">
-                <button onClick={() => setConfirmDelete(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold text-xs uppercase hover:bg-slate-200 transition-all">Cancelar</button>
-                <button onClick={() => handleDelete(confirmDelete.id)} className="flex-1 py-3 bg-rose-500 text-white rounded-xl font-bold text-xs uppercase shadow-lg shadow-rose-200 hover:scale-105 transition-all">Confirmar</button>
+                <button onClick={() => setConfirmDelete(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold text-xs uppercase">Cancelar</button>
+                <button onClick={() => handleDelete(confirmDelete.id)} className="flex-1 py-3 bg-rose-500 text-white rounded-xl font-bold text-xs uppercase shadow-lg">Confirmar</button>
               </div>
             </motion.div>
           </div>
@@ -243,19 +251,23 @@ export function CreditCards() {
 function CardForm({ onSave, onCancel }: any) {
   const [formData, setFormData] = useState({ card_name: '', bank_name: '', limit_amount: 0, current_spent: 0, closing_day: 5, due_day: 10 });
   const [bankSuggestions, setBankSuggestions] = useState<any[]>([]);
+
   const handleBankSearch = (val: string) => {
     setFormData({...formData, bank_name: val});
     if (val.length > 1) {
-      const filtered = GLOBAL_BANKS.filter(b => b.name.toLowerCase().includes(val.toLowerCase()));
-      setBankSuggestions(filtered);
+      setBankSuggestions(GLOBAL_BANKS.filter(b => b.name.toLowerCase().includes(val.toLowerCase())));
     } else {
       setBankSuggestions([]);
     }
   };
+
   return (
     <div className="space-y-8">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="space-y-2"><label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Apelido do Cartão</label><input className="w-full p-4 bg-slate-50 border border-slate-200 focus:border-primary rounded-2xl outline-none font-bold transition-all" placeholder="Ex: Black Principal" value={formData.card_name} onChange={e => setFormData({...formData, card_name: e.target.value})} /></div>
+        <div className="space-y-2">
+          <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Apelido do Cartão</label>
+          <input className="w-full p-4 bg-slate-50 border border-slate-200 focus:border-primary rounded-2xl outline-none font-bold transition-all" placeholder="Ex: Black Principal" value={formData.card_name} onChange={e => setFormData({...formData, card_name: e.target.value})} />
+        </div>
         <div className="space-y-2 relative">
           <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Banco Emissor</label>
           <div className="relative">
@@ -265,23 +277,23 @@ function CardForm({ onSave, onCancel }: any) {
           <AnimatePresence>
             {bankSuggestions.length > 0 && (
               <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute z-10 w-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden max-h-48 overflow-y-auto">
-                {bankSuggestions.map(b => (<button key={b.code} onClick={() => { setFormData({...formData, bank_name: b.name}); setBankSuggestions([]); }} className="w-full px-6 py-4 text-left hover:bg-slate-50 transition-colors text-sm font-bold flex items-center justify-between text-slate-700">{b.name} <span className="text-[10px] opacity-40">#{b.code}</span></button>))}
+                {bankSuggestions.map(b => <button key={b.code} onClick={() => { setFormData({...formData, bank_name: b.name}); setBankSuggestions([]); }} className="w-full px-6 py-4 text-left hover:bg-slate-50 text-sm font-bold flex items-center justify-between text-slate-700">{b.name} <span className="text-[10px] opacity-40">#{b.code}</span></button>)}
               </motion.div>
             )}
           </AnimatePresence>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-8">
-        <div className="space-y-2"><label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Limite do Cartão (R$)</label><input type="number" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" value={formData.limit_amount || ''} onChange={e => setFormData({...formData, limit_amount: Number(e.target.value)})} /></div>
-        <div className="space-y-2"><label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Valor Gasto Atual (R$)</label><input type="number" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" value={formData.current_spent || ''} onChange={e => setFormData({...formData, current_spent: Number(e.target.value)})} /></div>
+        <div className="space-y-2"><label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Limite (R$)</label><input type="number" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" value={formData.limit_amount || ''} onChange={e => setFormData({...formData, limit_amount: Number(e.target.value)})} /></div>
+        <div className="space-y-2"><label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Gasto Atual (R$)</label><input type="number" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" value={formData.current_spent || ''} onChange={e => setFormData({...formData, current_spent: Number(e.target.value)})} /></div>
       </div>
       <div className="grid grid-cols-2 gap-8">
-        <div className="space-y-2"><label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Dia do Fechamento</label><input type="number" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" value={formData.closing_day} onChange={e => setFormData({...formData, closing_day: Number(e.target.value)})} /></div>
-        <div className="space-y-2"><label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Dia do Vencimento</label><input type="number" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" value={formData.due_day} onChange={e => setFormData({...formData, due_day: Number(e.target.value)})} /></div>
+        <div className="space-y-2"><label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Dia Fechamento</label><input type="number" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" value={formData.closing_day} onChange={e => setFormData({...formData, closing_day: Number(e.target.value)})} /></div>
+        <div className="space-y-2"><label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Dia Vencimento</label><input type="number" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" value={formData.due_day} onChange={e => setFormData({...formData, due_day: Number(e.target.value)})} /></div>
       </div>
-      <div className="flex gap-6 mt-10 pt-8 border-t border-slate-100 font-bold uppercase text-xs tracking-[0.2em]">
-          <button onClick={onCancel} className="flex-1 py-5 border border-slate-200 rounded-[1.5rem] hover:bg-slate-50 text-slate-400 transition-all text-xs tracking-widest">Cancelar</button>
-          <button onClick={() => onSave(formData)} className="flex-1 py-5 bg-slate-900 text-white rounded-[1.5rem] shadow-2xl shadow-slate-900/30 hover:scale-105 active:scale-95 transition-all tracking-[0.4em] text-[10px]">Ativar Cartão</button>
+      <div className="flex gap-6 mt-10 pt-8 border-t border-slate-100">
+        <button onClick={onCancel} className="flex-1 py-5 border border-slate-200 rounded-[1.5rem] hover:bg-slate-50 text-slate-400 font-bold text-xs uppercase tracking-widest transition-all">Cancelar</button>
+        <button onClick={() => onSave(formData)} className="flex-1 py-5 bg-slate-900 text-white rounded-[1.5rem] shadow-2xl font-bold text-xs uppercase tracking-[0.4em] hover:scale-105 active:scale-95 transition-all">Ativar Cartão</button>
       </div>
     </div>
   );
