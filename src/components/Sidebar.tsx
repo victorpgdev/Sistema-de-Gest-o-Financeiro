@@ -24,7 +24,7 @@ const MENU_ITEMS = [
   { icon: Users, label: 'Contatos', path: '/contacts' },
   { icon: Wallet, label: 'Contas Bancárias', path: '/accounts' },
   { icon: CreditCard, label: 'Meus Cartões', path: '/cards' },
-  { icon: Users, label: 'Equipe e Acessos', path: '/team' },
+  { icon: Users, label: 'Meus Acessos', path: '/team' },
 
   { icon: GraduationCap, label: 'Academia PG', path: '/help' },
   { icon: ShieldCheck, label: 'Segurança e LGPD', path: '/security' },

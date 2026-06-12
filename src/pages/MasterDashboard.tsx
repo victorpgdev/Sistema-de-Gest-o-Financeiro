@@ -189,11 +189,11 @@ export function MasterDashboard() {
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-800">Painel Master</h1>
-            <p className="text-sm text-slate-500 font-medium tracking-tight">O motor central do PG Financial SaaS.</p>
+            <p className="text-sm text-slate-500 font-medium tracking-tight">O motor central do PG Financial Pessoal.</p>
           </div>
         </div>
         <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
-          <button onClick={() => setActiveTab('tenants')} className={cn("px-6 py-2 rounded-xl text-xs font-black uppercase transition-all tracking-wider", activeTab === 'tenants' ? "bg-white shadow-sm text-primary" : "text-slate-500 hover:text-slate-800")}>EMPRESAS</button>
+          <button onClick={() => setActiveTab('tenants')} className={cn("px-6 py-2 rounded-xl text-xs font-black uppercase transition-all tracking-wider", activeTab === 'tenants' ? "bg-white shadow-sm text-primary" : "text-slate-500 hover:text-slate-800")}>MEUS ESPAÇOS</button>
           <button onClick={() => setActiveTab('profiles')} className={cn("px-6 py-2 rounded-xl text-xs font-black uppercase transition-all tracking-wider", activeTab === 'profiles' ? "bg-white shadow-sm text-primary" : "text-slate-500 hover:text-slate-800")}>USUÁRIOS</button>
         </div>
       </div>
@@ -219,7 +219,7 @@ export function MasterDashboard() {
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white border border-slate-200 rounded-[2rem] p-8 shadow-sm relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-primary/10 transition-colors" />
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Total de Empresas</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Total de Espaços</p>
           <div className="font-black text-4xl text-slate-800 tracking-tighter">{tenants.length}</div>
           <div className="mt-4 flex items-center gap-4 text-[10px] font-bold text-slate-400">
              <span className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> {tenants.filter(t => t.status === 'active').length} Ativas</span>
@@ -239,7 +239,7 @@ export function MasterDashboard() {
         <div className="relative flex-1 group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
           <input 
-            placeholder={activeTab === 'tenants' ? "Pesquisar por nome da empresa..." : "Pesquisar por nome ou e-mail..."}
+            placeholder={activeTab === 'tenants' ? "Pesquisar por nome do espaço..." : "Pesquisar por nome ou e-mail..."}
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             className="w-full pl-11 pr-4 py-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all text-slate-700"
@@ -249,7 +249,7 @@ export function MasterDashboard() {
           onClick={() => setShowModal(true)}
           className="px-8 py-4 bg-primary text-white rounded-2xl font-black shadow-xl shadow-primary/20 flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-all text-sm uppercase tracking-wider"
         >
-          <Plus className="w-5 h-5 flex-shrink-0" /> Novo Cliente
+          <Plus className="w-5 h-5 flex-shrink-0" /> Novo Espaço
         </button>
       </div>
 
@@ -262,7 +262,7 @@ export function MasterDashboard() {
               <table className="w-full text-left">
                 <thead className="bg-slate-50/50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
                   <tr>
-                    <th className="px-10 py-6">Organização</th>
+                    <th className="px-10 py-6">Conta Pessoal</th>
                     <th className="px-8 py-6">Status</th>
                     <th className="px-8 py-6">Plano</th>
                     <th className="px-8 py-6">Chave Única</th>
@@ -318,7 +318,7 @@ export function MasterDashboard() {
                 <thead className="bg-slate-50/50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
                   <tr>
                     <th className="px-10 py-6">Responsável / Acesso</th>
-                    <th className="px-8 py-6">Empresa Vinculada</th>
+                    <th className="px-8 py-6">Espaço Vinculado</th>
                     <th className="px-8 py-6 text-center">Nível</th>
                     <th className="px-8 py-6 text-center">Cadastro</th>
                     <th className="px-10 py-6 text-right">Ações</th>

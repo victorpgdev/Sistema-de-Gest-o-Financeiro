@@ -1,94 +1,67 @@
 import { supabase } from './supabase';
 
-export type AuditAction = 'LOGIN' | 'LOGOUT' | 'CREATE' | 'UPDATE' | 'DELETE' | 'EXPORT' | 'CONSENT_LGPD' | 'ERROR' | 'SYSTEM_CHECK';
-export type AuditModule = 'AUTH' | 'TRANSACTIONS' | 'ACCOUNTS' | 'CARDS' | 'TEAM' | 'REPORTS' | 'SYSTEM' | 'DIAGNOSTIC';
-export type AuditLevel = 'DEBUG' | 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL';
-
-interface AuditLogParams {
+interface LogEntry {
   userId?: string;
   tenantId?: string;
-  action: AuditAction;
-  module: AuditModule;
+  action: string;
+  module: string;
   description: string;
-  details?: any;
-  level?: AuditLevel;
+  metadata?: any;
+  nivel?: 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR' | 'CRITICAL';
+  stack_trace?: string;
 }
 
 /**
- * Registra uma atividade no log de auditoria imutável do sistema.
- * Agora suporta níveis de gravidade para diagnóstico facilitado.
+ * Registra uma atividade ou erro no sistema de auditoria PG-IRONCLAD.
  */
-export async function logActivity({ 
-  userId, 
-  tenantId, 
-  action, 
-  module, 
-  description, 
-  details,
-  level = 'INFO'
-}: AuditLogParams) {
+export async function logActivity(entry: LogEntry) {
   try {
-    const userAgent = navigator.userAgent;
-    
     const { error } = await supabase.from('auditoria_logs').insert([{
-      usuario_id: userId,
-      tenant_id: tenantId,
-      acao: action,
-      modulo: module,
-      descricao: description,
-      dados_alterados: details ? (typeof details === 'string' ? details : JSON.stringify(details)) : null,
-      user_agent: userAgent,
-      nivel: level,
-      data_hora: new Date().toISOString()
+      user_id: entry.userId,
+      tenant_id: entry.tenantId,
+      action: entry.action,
+      module: entry.module,
+      description: entry.description,
+      metadata: entry.metadata || {},
+      nivel: entry.nivel || 'INFO',
+      stack_trace: entry.stack_trace
     }]);
 
-    if (error) console.error('Falha ao registrar auditoria:', error);
+    if (error) {
+      // Falha silenciosa para não quebrar a UI, mas loga no console em dev
+      console.error('Audit Log Error:', error.message);
+    }
   } catch (err) {
-    console.error('Erro crítico no sistema de log:', err);
+    console.warn('Silent Audit Failure:', err);
   }
 }
 
 /**
- * Atalho para registrar erros do sistema automaticamente.
+ * Captura erros globais do sistema e envia para auditoria.
  */
-export async function logError(error: Error | any, module: AuditModule, context?: string) {
-  const { user } = (window as any).authStore?.getState?.() || {}; // Hackish access to store if available globally, or pass it
-  
-  console.error(`[${module}] Error:`, error);
+export function setupGlobalErrorLogging(userId?: string, tenantId?: string) {
+  window.onerror = function(message, source, lineno, colno, error) {
+    logActivity({
+      userId,
+      tenantId,
+      action: 'SYSTEM_ERROR',
+      module: 'GLOBAL_HANDLER',
+      nivel: 'CRITICAL',
+      description: `Erro Crítico: ${message}`,
+      metadata: { source, lineno, colno },
+      stack_trace: error?.stack
+    });
+  };
 
-  await logActivity({
-    userId: user?.id,
-    tenantId: user?.tenant_id,
-    action: 'ERROR',
-    module: module,
-    description: `${context ? context + ': ' : ''}${error.message || 'Erro desconhecido'}`,
-    details: {
-      stack: error.stack,
-      name: error.name,
-      ...error
-    },
-    level: 'ERROR'
-  });
-}
-
-
-/**
- * Formata dados sensíveis para conformidade LGPD (Mascaramento)
- */
-export function maskSensitiveData(value: string, type: 'email' | 'cpf' | 'cnpj' | 'phone') {
-  if (!value) return '';
-  
-  switch (type) {
-    case 'email':
-      const [user, domain] = value.split('@');
-      return `${user.substring(0, 3)}***@${domain}`;
-    case 'cpf':
-      return value.replace(/(\d{3})\.\d{3}\.\d{3}-(\d{2})/, '$1.***.***-$2');
-    case 'cnpj':
-      return value.replace(/(\d{2})\.\d{3}\.\d{3}\/\d{4}-(\d{2})/, '$1.***.***/****-$2');
-    case 'phone':
-      return value.replace(/(\d{2})\d{5}(\d{4})/, '($1) *****-$2');
-    default:
-      return '********';
-  }
+  window.onunhandledrejection = function(event) {
+    logActivity({
+      userId,
+      tenantId,
+      action: 'PROMISE_REJECTION',
+      module: 'GLOBAL_HANDLER',
+      nivel: 'ERROR',
+      description: `Promessa Rejeitada: ${event.reason?.message || event.reason}`,
+      stack_trace: event.reason?.stack
+    });
+  };
 }

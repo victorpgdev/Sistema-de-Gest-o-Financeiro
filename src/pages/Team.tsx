@@ -85,7 +85,7 @@ export function Team() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Equipe e Permissões</h1>
-          <p className="text-sm text-muted-foreground font-medium">Controle quem pode acessar as finanças da sua empresa.</p>
+          <p className="text-sm text-muted-foreground font-medium">Controle quem pode acessar as suas finanças.</p>
         </div>
         <button 
           onClick={() => setNotification({ type: 'error', message: 'O convite por e-mail requer plano PRO.' })}
@@ -99,7 +99,7 @@ export function Team() {
         {isLoading ? (
           <div className="col-span-full py-20 text-center"><Loader2 className="w-10 h-10 animate-spin mx-auto text-primary opacity-20" /></div>
         ) : members.length === 0 ? (
-          <div className="col-span-full py-20 text-center text-muted-foreground border-2 border-dashed rounded-[3rem]">Você é o único membro desta empresa.</div>
+          <div className="col-span-full py-20 text-center text-muted-foreground border-2 border-dashed rounded-[3rem]">Você é o único membro com acesso a estes dados.</div>
         ) : members.map(member => (
           <motion.div 
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} key={member.id} 
@@ -168,7 +168,7 @@ export function Team() {
             <div className="space-y-2">
                <h2 className="text-2xl font-bold tracking-tight uppercase">Dica de Segurança Master</h2>
                <p className="text-slate-400 text-sm font-medium italic">
-                  "Divida o trabalho, mas mantenha a chave do cofre. Atribua o nível 'Financeiro' para seus funcionários poderem alimentar o fluxo de caixa sem alterar seus dados bancários sensíveis."
+                  "Divida o trabalho, mas mantenha a chave do cofre. Atribua o nível 'Financeiro' para seus auxiliares poderem alimentar o fluxo de caixa sem alterar seus dados sensíveis."
                </p>
             </div>
             <div className="flex flex-col gap-2 shrink-0">

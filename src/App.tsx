@@ -23,6 +23,8 @@ const Contacts = lazy(() => import('./pages/Contacts').then(m => ({ default: m.C
 const SecurityCompliance = lazy(() => import('./pages/SecurityCompliance').then(m => ({ default: m.SecurityCompliance })));
 const DiagnosticCenter = lazy(() => import('./pages/DiagnosticCenter').then(m => ({ default: m.DiagnosticCenter })));
 const AuditLogs = lazy(() => import('./pages/AuditLogs').then(m => ({ default: m.AuditLogs })));
+import { setupGlobalErrorLogging } from './lib/audit';
+
 
 
 
@@ -59,7 +61,15 @@ function App() {
     (window as any).authStore = useAuthStore;
   }, [initialize]);
 
+  useEffect(() => {
+    if (user) {
+      setupGlobalErrorLogging(user.id, user.tenant_id || undefined);
+    }
+  }, [user]);
+
+
   // Detecta primeiro acesso (Onboarding e LGPD)
+
   useEffect(() => {
     if (user && user.role !== 'MASTER') {
       // 1. Verifica Consentimento LGPD
