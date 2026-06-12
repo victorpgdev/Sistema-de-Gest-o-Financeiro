@@ -55,31 +55,38 @@ export function BankAccounts() {
   const handleSave = async (formData: any) => {
     let tenantId = user?.tenant_id;
 
-    // Auto-provisionamento: se não tem espaço, cria um na hora
+    // Se não está no store, tenta buscar direto no banco (fallback de emergência)
+    if (!tenantId && user?.id) {
+      const { data: profile } = await supabase.from('profiles').select('tenant_id').eq('id', user.id).single();
+      if (profile?.tenant_id) {
+        tenantId = profile.tenant_id;
+      }
+    }
+
+    // Auto-provisionamento: se realmente não existe em lugar nenhum, cria na hora
     if (!tenantId && user?.id) {
       setNotification({ type: 'error', message: '⏳ Configurando seu espaço pessoal...' });
       
-      // Tenta encontrar um tenant existente no banco
-      const { data: existing } = await supabase.from('tenants').select('id').limit(1);
-      if (existing && existing.length > 0) {
-        tenantId = existing[0].id;
-      } else {
-        // Cria um novo espaço pessoal
-        const { data: newSpace } = await supabase
-          .from('tenants')
-          .insert([{ name: 'Meu Espaço Pessoal', plan: 'Basic', status: 'active' }])
-          .select().single();
-        if (newSpace) tenantId = newSpace.id;
-      }
-
-      // Vincula o usuário permanentemente ao espaço
-      if (tenantId) {
+      const { data: newSpace, error: tError } = await supabase
+        .from('tenants')
+        .insert([{ name: 'Meu Espaço Pessoal', plan: 'Basic', status: 'active' }])
+        .select().single();
+      
+      if (newSpace) {
+        tenantId = newSpace.id;
         await supabase.from('profiles').update({ tenant_id: tenantId }).eq('id', user.id);
+      } else {
+        // Busca qualquer um existente como último recurso
+        const { data: existing } = await supabase.from('tenants').select('id').limit(1);
+        if (existing && existing.length > 0) {
+          tenantId = existing[0].id;
+          await supabase.from('profiles').update({ tenant_id: tenantId }).eq('id', user.id);
+        }
       }
     }
 
     if (!tenantId) {
-      setNotification({ type: 'error', message: 'Erro: Não foi possível criar seu espaço. Rode o SQL no Supabase e tente novamente.' });
+      setNotification({ type: 'error', message: 'Erro: Vínculo não encontrado. Recarregue a página (F5) e tente novamente.' });
       return;
     }
 
@@ -96,6 +103,7 @@ export function BankAccounts() {
         ...sanitizedData,
         tenant_id: tenantId
       }]);
+
 
       if (error) {
         setNotification({ type: 'error', message: `Erro ao salvar: ${error.message}` });
