@@ -3,9 +3,11 @@ import { motion } from 'framer-motion';
 import { ShieldCheck, FileText, Lock, ArrowRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { logActivity } from '@/lib/audit';
+import { useAuthStore } from '@/store';
 import { cn } from '@/lib/utils';
 
 export function TermsConsent({ user, onAccept }: { user: any, onAccept: () => void }) {
+  const { updateUser } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [accepted, setAccepted] = useState(false);
 
@@ -13,15 +15,25 @@ export function TermsConsent({ user, onAccept }: { user: any, onAccept: () => vo
     if (!accepted) return;
     setIsLoading(true);
     try {
-      // Registrar consentimento no banco
+      // 1. Atualizar o perfil do usuário para persistir no banco
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ lgpd_accepted: true })
+        .eq('id', user.id);
+
+      if (profileError) throw profileError;
+
+      // 2. Atualizar estado local imediatamente
+      updateUser({ lgpd_accepted: true });
+
+      // 2. Registrar consentimento detalhado para auditoria legal
       await supabase.from('lgpd_consentimentos').insert([{
         usuario_id: user.id,
         tenant_id: user.tenant_id,
-        ip: '127.0.0.1', // O ideal é pegar via Edge Function, mas registramos o evento
+        ip: '127.0.0.1', 
         versao_termo: '1.0'
       }]);
 
-      // Registrar na auditoria
       await logActivity({
         userId: user.id,
         tenantId: user.tenant_id,
@@ -30,18 +42,20 @@ export function TermsConsent({ user, onAccept }: { user: any, onAccept: () => vo
         description: 'Usuário aceitou os Termos de Uso e Política de Privacidade (LGPD).'
       });
 
-      // Salvar no cache local para não perguntar novamente
-      localStorage.setItem(`lgpd_consent_${user.id}`, 'true');
+      // 3. Salvar no cache local com a chave correta
+      localStorage.setItem('pg_lgpd_consent', 'true');
 
       onAccept();
     } catch (err) {
-      console.error(err);
-      localStorage.setItem(`lgpd_consent_${user.id}`, 'true'); // Salva no local mesmo com erro de rede para não travar o user
+      console.error('Erro ao salvar consentimento:', err);
+      // Fallback: permite acesso mas tenta salvar no local
+      localStorage.setItem('pg_lgpd_consent', 'true');
       onAccept();
     } finally {
       setIsLoading(false);
     }
   };
+
 
   return (
     <div className="fixed inset-0 z-[300] bg-slate-900/80 backdrop-blur-xl flex items-center justify-center p-4">

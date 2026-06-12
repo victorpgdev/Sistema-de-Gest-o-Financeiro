@@ -188,7 +188,7 @@ export function Header() {
             className="flex items-center gap-3 p-1.5 pr-4 hover:bg-muted rounded-2xl transition-all group"
           >
             <div className="w-10 h-10 bg-primary text-white rounded-xl flex items-center justify-center font-bold shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform uppercase">
-              {user?.name?.[0] || 'U'}
+              {user?.name?.[0] || user?.email?.[0] || 'U'}
             </div>
             <div className="hidden lg:block text-left">
               <p className="text-xs font-bold leading-none mb-1">{user?.name || 'Usuário'}</p>

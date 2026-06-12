@@ -104,29 +104,37 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+CREATE OR REPLACE FUNCTION get_user_tenant_id()
+RETURNS UUID AS $$
+BEGIN
+  RETURN (SELECT tenant_id FROM profiles WHERE id = auth.uid() LIMIT 1);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- 10. POLÍTICAS DE ACESSO (MULTITENANT)
 
 -- POLÍTICA GERAL: Usuários comuns só vêem dados do seu próprio tenant. Master vê tudo.
 DROP POLICY IF EXISTS "Tenant isolation for bank_accounts" ON bank_accounts;
 CREATE POLICY "Tenant isolation for bank_accounts" ON bank_accounts
-    USING (tenant_id = (SELECT tenant_id FROM profiles WHERE id = auth.uid()) OR is_master());
+    USING (tenant_id = get_user_tenant_id() OR is_master());
 
 DROP POLICY IF EXISTS "Tenant isolation for credit_cards" ON credit_cards;
 CREATE POLICY "Tenant isolation for credit_cards" ON credit_cards
-    USING (tenant_id = (SELECT tenant_id FROM profiles WHERE id = auth.uid()) OR is_master());
+    USING (tenant_id = get_user_tenant_id() OR is_master());
 
 DROP POLICY IF EXISTS "Tenant isolation for transactions" ON transactions;
 CREATE POLICY "Tenant isolation for transactions" ON transactions
-    USING (tenant_id = (SELECT tenant_id FROM profiles WHERE id = auth.uid()) OR is_master());
+    USING (tenant_id = get_user_tenant_id() OR is_master());
 
 DROP POLICY IF EXISTS "Tenant isolation for auditoria_logs" ON auditoria_logs;
 CREATE POLICY "Tenant isolation for auditoria_logs" ON auditoria_logs
-    USING (tenant_id = (SELECT tenant_id FROM profiles WHERE id = auth.uid()) OR is_master());
+    USING (tenant_id = get_user_tenant_id() OR is_master());
 
 -- POLÍTICA PARA PROFILES (A MAIS CRÍTICA PARA EVITAR RECURSÃO)
 DROP POLICY IF EXISTS "Profiles isolation" ON profiles;
 CREATE POLICY "Profiles isolation" ON profiles
-    USING (id = auth.uid() OR tenant_id = (SELECT tenant_id FROM profiles p WHERE p.id = auth.uid()) OR is_master());
+    USING (id = auth.uid() OR tenant_id = get_user_tenant_id() OR is_master());
+
 
 -- 10. TRIGGER PARA UPDATED_AT
 CREATE OR REPLACE FUNCTION update_updated_at_column()

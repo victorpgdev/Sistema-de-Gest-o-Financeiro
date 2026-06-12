@@ -47,7 +47,9 @@ export function Dashboard() {
         .from('transactions')
         .select('*')
         .eq('tenant_id', user.tenant_id)
+        .gte('due_date', new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]) // Otimização: Últimos 90 dias
         .order('due_date', { ascending: false });
+
 
       if (txError) throw txError;
 

@@ -67,7 +67,17 @@ BEGIN
     CREATE POLICY "Tenant isolation for contacts" ON contacts USING (tenant_id = (SELECT tenant_id FROM profiles WHERE id = auth.uid()) OR (SELECT role FROM profiles WHERE id = auth.uid()) = 'MASTER');
   END IF;
 END $$;
+
+-- 8. Provisão de Usuário Master (Bypass)
+INSERT INTO tenants (id, name, plan, status)
+VALUES ('d9b04886-4e5a-40a2-9214-539050d51084', 'ADMIN CORPORATIVO', 'Enterprise', 'active')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO profiles (id, email, name, role, tenant_id, status, lgpd_accepted, onboarding_completed)
+VALUES ('235bacfd-ac10-4ab0-88ee-b50ada2bda4d', 'victorhugoperea89@gmail.com', 'Victor Hugo (MASTER)', 'MASTER', 'd9b04886-4e5a-40a2-9214-539050d51084', 'active', true, true)
+ON CONFLICT (id) DO NOTHING;
 `;
+
 
 async function runMigration() {
   if (!supabaseUrl || !supabaseKey) {

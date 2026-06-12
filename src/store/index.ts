@@ -26,8 +26,10 @@ interface AuthState {
   initialize: () => Promise<void>;
   login: (email: string, password?: string) => Promise<void>;
   logout: () => Promise<void>;
+  updateUser: (data: Partial<User>) => void;
   setLoading: (loading: boolean) => void;
 }
+
 
 interface UIState {
   isSidebarOpen: boolean;
@@ -41,8 +43,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   isLoading: true,
 
   setLoading: (isLoading) => set({ isLoading }),
+  
+  updateUser: (data) => set((state) => ({
+    user: state.user ? { ...state.user, ...data } : null
+  })),
 
   login: async (email, password) => {
+
     set({ isLoading: true });
     try {
       // MASTER BYPASS ABSOLUTO
@@ -77,17 +84,37 @@ export const useAuthStore = create<AuthState>((set) => ({
           .single();
 
         if (profile) {
+            let userTenantId = profile.tenant_id;
+            let userTenant = profile.tenants;
+
+            // AUTO-PROVISIONING: Se não tem empresa, cria um espaço pessoal automaticamente
+            if (!userTenantId) {
+              const { data: newTenant, error: tError } = await supabase
+                .from('tenants')
+                .insert([{ name: 'Meu Espaço Pessoal', plan: 'Basic' }])
+                .select()
+                .single();
+              
+              if (!tError && newTenant) {
+                userTenantId = newTenant.id;
+                userTenant = newTenant;
+                // Atualiza o perfil para vincular permanentemente
+                await supabase.from('profiles').update({ tenant_id: userTenantId }).eq('id', profile.id);
+              }
+            }
+
             const userObj: User = {
               id: profile.id,
               email: profile.email,
               name: profile.name,
               role: profile.role,
-              tenant_id: profile.tenant_id,
+              tenant_id: userTenantId,
               status: profile.status || 'active',
               lgpd_accepted: profile.lgpd_accepted
             };
-            set({ user: userObj, tenant: profile.tenants as any, isAuthenticated: true, isLoading: false });
+            set({ user: userObj, tenant: userTenant as any, isAuthenticated: true, isLoading: false });
         } else {
+
            set({ isAuthenticated: true, user: { id: data.user.id, email: data.user.email!, name: 'Usuário', role: 'OWNER', tenant_id: null, status: 'active' }, isLoading: false });
         }
       }
@@ -119,18 +146,36 @@ export const useAuthStore = create<AuthState>((set) => ({
             .single();
 
           if (profile) {
+            let userTenantId = profile.tenant_id;
+            let userTenant = profile.tenants;
+
+            if (!userTenantId) {
+              const { data: newTenant } = await supabase
+                .from('tenants')
+                .insert([{ name: 'Meu Espaço Pessoal', plan: 'Basic' }])
+                .select()
+                .single();
+              
+              if (newTenant) {
+                userTenantId = newTenant.id;
+                userTenant = newTenant;
+                await supabase.from('profiles').update({ tenant_id: userTenantId }).eq('id', profile.id);
+              }
+            }
+
             const userObj: User = {
               id: profile.id,
               email: profile.email,
               name: profile.name,
               role: profile.role,
-              tenant_id: profile.tenant_id,
+              tenant_id: userTenantId,
               status: profile.status || 'active',
               lgpd_accepted: profile.lgpd_accepted
             };
-            set({ isAuthenticated: true, user: userObj, tenant: profile.tenants as any });
+            set({ isAuthenticated: true, user: userObj, tenant: userTenant as any });
             return;
           }
+
         } catch (e) {
           console.error("Auth init error:", e);
         }

@@ -58,9 +58,16 @@ function App() {
   // Detecta primeiro acesso (Onboarding e LGPD)
   useEffect(() => {
     if (user && user.role !== 'MASTER') {
-      // 1. Verifica Consentimento LGPD (Cache Local primeiro para velocidade)
-      const hasAcceptedLGPD = localStorage.getItem('pg_lgpd_consent') === 'true' || user?.lgpd_accepted;
-      setShowConsent(!hasAcceptedLGPD);
+      // 1. Verifica Consentimento LGPD
+      // Prioridade: Banco de Dados (user.lgpd_accepted), Fallback: Cache Local
+      const acceptedInDB = user?.lgpd_accepted === true;
+      const acceptedInLocal = localStorage.getItem('pg_lgpd_consent') === 'true';
+
+      if (acceptedInDB && !acceptedInLocal) {
+        localStorage.setItem('pg_lgpd_consent', 'true');
+      }
+
+      setShowConsent(!(acceptedInDB || acceptedInLocal));
 
       // 2. Verifica Onboarding
       supabase.from('profiles').select('onboarding_completed').eq('id', user.id).single()
@@ -69,6 +76,7 @@ function App() {
         });
     }
   }, [user]);
+
 
   if (isLoading) {
     return (
